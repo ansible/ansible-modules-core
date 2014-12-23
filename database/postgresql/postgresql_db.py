@@ -263,7 +263,7 @@ def main():
     kw = dict( (params_map[k], v) for (k, v) in module.params.iteritems() 
               if k in params_map and v != '' )
     try:
-        db_connection = psycopg2.connect(database="template1", **kw)
+        db_connection = psycopg2.connect(database="postgres", **kw)
         # Enable autocommit so we can create databases
         if psycopg2.__version__ >= '2.4.2':
             db_connection.autocommit = True

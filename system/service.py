@@ -105,7 +105,8 @@ import select
 import time
 import string
 
-from distutils.version import LooseVersion
+if platform.system() == 'Linux':
+    from distutils.version import LooseVersion
 
 class Service(object):
     """

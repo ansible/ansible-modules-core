@@ -107,12 +107,13 @@ EXAMPLES = '''
   register: rec
 
 # Delete new.foo.com A record using the results from the get command
-- route53: >
-      command=delete
-      zone=foo.com
-      record={{ rec.set.record }}
-      type={{ rec.set.type }}
-      value={{ rec.set.value }}
+- route53:
+      command: delete
+      zone: foo.com
+      record: "{{ rec.set.record }}"
+      ttl: "{{ rec.set.ttl }}"
+      type: "{{ rec.set.type }}"
+      value: "{{ rec.set.value }}"
 
 # Add an AAAA record.  Note that because there are colons in the value
 # that the entire parameter list must be quoted:

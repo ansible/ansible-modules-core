@@ -77,7 +77,7 @@ options:
     version_added: "1.5"
   volumes:
     description:
-      - Set volume(s) to mount on the container
+      - Set volume(s) to mount on the container separated with a comma (,) and in the format "source:dest[:rights]"
     required: false
     default: null
     aliases: []
@@ -96,11 +96,11 @@ options:
     version_added: "1.5"
   memory_limit:
     description:
-      - Set RAM allocated to container
+      - Set RAM allocated to container. It will be passed as a number of bytes. For example 1048576 = 1Gb
     required: false
     default: null
     aliases: []
-    default: 256MB
+    default: 262144
   docker_url:
     description:
       - URL of docker host to issue commands to
@@ -524,6 +524,8 @@ class DockerManager(object):
         # connect to docker server
         docker_url = urlparse(module.params.get('docker_url'))
         docker_api_version = module.params.get('docker_api_version')
+        if not docker_api_version:
+            docker_api_version=docker.client.DEFAULT_DOCKER_API_VERSION
         self.client = docker.Client(base_url=docker_url.geturl(), version=docker_api_version)
 
         self.docker_py_versioninfo = get_docker_py_versioninfo()
@@ -845,7 +847,7 @@ def main():
             memory_limit    = dict(default=0),
             memory_swap     = dict(default=0),
             docker_url      = dict(default='unix://var/run/docker.sock'),
-            docker_api_version = dict(default=docker.client.DEFAULT_DOCKER_API_VERSION),
+            docker_api_version = dict(),
             username        = dict(default=None),
             password        = dict(),
             email           = dict(),

@@ -811,6 +811,10 @@ def create_instances(module, ec2, override_count=None):
 
             if ebs_optimized:
               params['ebs_optimized'] = ebs_optimized
+              
+            # 'tenancy' always has a default value, but it is not a valid parameter for spot instance resquest
+            if not spot_price:
+              params['tenancy'] = tenancy
 
             if boto_supports_profile_name_arg(ec2):
                 params['instance_profile_name'] = instance_profile_name

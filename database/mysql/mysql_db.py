@@ -310,7 +310,7 @@ def main():
             module.fail_json(msg="with state=%s target is required" % (state))
         connect_to_db = db
     else:
-        connect_to_db = 'mysql'
+        connect_to_db = ''
     try:
         if module.params["login_unix_socket"]:
             db_connection = MySQLdb.connect(host=module.params["login_host"], unix_socket=module.params["login_unix_socket"], user=login_user, passwd=login_password, db=connect_to_db)

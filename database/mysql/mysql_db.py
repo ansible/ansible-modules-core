@@ -111,7 +111,6 @@ import ConfigParser
 import os
 import pipes
 import stat
-import subprocess
 try:
     import MySQLdb
 except ImportError:
@@ -143,20 +142,14 @@ def db_dump(module, host, user, password, db_name, target, all_databases, port, 
         cmd += " --all-databases"
     else:
         cmd += " %s" % pipes.quote(db_name)
-
-    path = None
     if os.path.splitext(target)[-1] == '.gz':
-        path = module.get_bin_path('gzip', True)
+        cmd = cmd + ' | gzip > ' + pipes.quote(target)
     elif os.path.splitext(target)[-1] == '.bz2':
-        path = module.get_bin_path('bzip2', True)
+        cmd = cmd + ' | bzip2 > ' + pipes.quote(target)
     elif os.path.splitext(target)[-1] == '.xz':
-        path = module.get_bin_path('xz', True)
-
-    if path:
-        cmd = '%s | %s > %s' % (cmd, path, pipes.quote(target))
+        cmd = cmd + ' | xz > ' + pipes.quote(target)
     else:
         cmd += " > %s" % pipes.quote(target)
-
     rc, stdout, stderr = module.run_command(cmd, use_unsafe_shell=True)
     return rc, stdout, stderr
 
@@ -164,44 +157,69 @@ def db_import(module, host, user, password, db_name, target, all_databases, port
     if not os.path.exists(target):
         return module.fail_json(msg="target %s does not exist on the host" % target)
 
-    cmd = [module.get_bin_path('mysql', True)]
-    if user:
-        cmd.append("--user=%s" % pipes.quote(user))
-    if password:
-        cmd.append("--password=%s" % pipes.quote(password))
+    cmd = module.get_bin_path('mysql', True)
+    cmd += " --user=%s --password=%s" % (pipes.quote(user), pipes.quote(password))
     if socket is not None:
-        cmd.append("--socket=%s" % pipes.quote(socket))
+        cmd += " --socket=%s" % pipes.quote(socket)
     else:
-        cmd.append("--host=%s" % pipes.quote(host))
-        cmd.append("--port=%i" % port)
+        cmd += " --host=%s --port=%i" % (pipes.quote(host), port)
     if not all_databases:
-        cmd.append("-D")
-        cmd.append(pipes.quote(db_name))
-
-    comp_prog_path = None
+    	cmd += " -D %s" % pipes.quote(db_name)
     if os.path.splitext(target)[-1] == '.gz':
-        comp_prog_path = module.get_bin_path('gzip', required=True)
+        gzip_path = module.get_bin_path('gzip')
+        if not gzip_path:
+            module.fail_json(msg="gzip command not found")
+        #gzip -d file (uncompress)
+        rc, stdout, stderr = module.run_command('%s -d %s' % (gzip_path, target))
+        if rc != 0:
+            return rc, stdout, stderr
+        #Import sql
+        cmd += " < %s" % pipes.quote(os.path.splitext(target)[0])
+        try:
+            rc, stdout, stderr = module.run_command(cmd, use_unsafe_shell=True)
+            if rc != 0:
+                return rc, stdout, stderr
+        finally:
+            #gzip file back up
+            module.run_command('%s %s' % (gzip_path, os.path.splitext(target)[0]))
     elif os.path.splitext(target)[-1] == '.bz2':
-        comp_prog_path = module.get_bin_path('bzip2', required=True)
+        bzip2_path = module.get_bin_path('bzip2')
+        if not bzip2_path:
+            module.fail_json(msg="bzip2 command not found")
+        #bzip2 -d file (uncompress)
+        rc, stdout, stderr = module.run_command('%s -d %s' % (bzip2_path, target))
+        if rc != 0:
+            return rc, stdout, stderr
+        #Import sql
+        cmd += " < %s" % pipes.quote(os.path.splitext(target)[0])
+        try:
+            rc, stdout, stderr = module.run_command(cmd, use_unsafe_shell=True)
+            if rc != 0:
+                return rc, stdout, stderr
+        finally:
+            #bzip2 file back up
+            rc, stdout, stderr = module.run_command('%s %s' % (bzip2_path, os.path.splitext(target)[0]))
     elif os.path.splitext(target)[-1] == '.xz':
-        comp_prog_path = module.get_bin_path('xz', required=True)
-
-    if comp_prog_path:
-        p1 = subprocess.Popen([comp_prog_path, '-dc', target], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        p2 = subprocess.Popen(cmd, stdin=p1.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (stdout2, stderr2) = p2.communicate()
-        p1.stdout.close()
-        p1.wait()
-        if p1.returncode != 0:
-            stderr1 = p1.stderr.read()
-            return p1.returncode, '', stderr1
-        else:
-            return p2.returncode, stdout2, stderr2
+        xz_path = module.get_bin_path('xz')
+        if not xz_path:
+            module.fail_json(msg="xz command not found")
+        #xz -d file (uncompress)
+        rc, stdout, stderr = module.run_command('%s -d %s' % (xz_path, target))
+        if rc != 0:
+            return rc, stdout, stderr
+        #Import sql
+        cmd += " < %s" % pipes.quote(os.path.splitext(target)[0])
+        try:
+            rc, stdout, stderr = module.run_command(cmd, use_unsafe_shell=True)
+            if rc != 0:
+                return rc, stdout, stderr
+        finally:
+            #xz file back up
+            rc, stdout, stderr = module.run_command('%s %s' % (xz_path, os.path.splitext(target)[0]))
     else:
-        cmd = ' '.join(cmd)
         cmd += " < %s" % pipes.quote(target)
         rc, stdout, stderr = module.run_command(cmd, use_unsafe_shell=True)
-        return rc, stdout, stderr
+    return rc, stdout, stderr
 
 def db_create(cursor, db, encoding, collation):
     query_params = dict(enc=encoding, collate=collation)
@@ -352,11 +370,11 @@ def main():
             db_connection = MySQLdb.connect(host=module.params["login_host"], port=login_port, user=login_user, passwd=login_password, db=connect_to_db)
         cursor = db_connection.cursor()
     except Exception, e:
-        errno, errstr = e.args
         if "Unknown database" in str(e):
+                errno, errstr = e.args
                 module.fail_json(msg="ERROR: %s %s" % (errno, errstr))
         else:
-                module.fail_json(msg="unable to connect, check login credentials (login_user, and login_password, which can be defined in ~/.my.cnf), check that mysql socket exists and mysql server is running (ERROR: %s %s)" % (errno, errstr))
+                module.fail_json(msg="unable to connect, check login credentials (login_user, and login_password, which can be defined in ~/.my.cnf), check that mysql socket exists and mysql server is running")
 
     changed = False
     if db_exists(cursor, db):

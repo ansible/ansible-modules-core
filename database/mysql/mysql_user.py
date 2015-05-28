@@ -245,7 +245,7 @@ def user_mod(cursor, user, host, password, new_priv, append_privs):
                 grant_option = True
             if db_table not in new_priv:
                 if user != "root" and "PROXY" not in priv and not append_privs:
-                    privileges_revoke(cursor, user,host,db_table,priv,grant_option)
+                    privileges_revoke(cursor, user,host,db_table,grant_option)
                     changed = True
 
         # If the user doesn't currently have any privileges on a db.table, then
@@ -262,7 +262,7 @@ def user_mod(cursor, user, host, password, new_priv, append_privs):
             priv_diff = set(new_priv[db_table]) ^ set(curr_priv[db_table])
             if (len(priv_diff) > 0):
                 if not append_privs:
-                    privileges_revoke(cursor, user,host,db_table,curr_priv[db_table],grant_option)
+                    privileges_revoke(cursor, user,host,db_table,grant_option)
                 privileges_grant(cursor, user,host,db_table,new_priv[db_table])
                 changed = True
 
@@ -320,8 +320,12 @@ def privileges_unpack(priv):
     output = {}
     for item in priv.strip().split('/'):
         pieces = item.strip().split(':')
-        dbpriv = pieces[0].rsplit(".", 1)
-        pieces[0] = "`%s`.%s" % (dbpriv[0].strip('`'), dbpriv[1])
+        if '.' in pieces[0]:
+            pieces[0] = pieces[0].split('.')
+            for idx, piece in enumerate(pieces):
+                if pieces[0][idx] != "*":
+                    pieces[0][idx] = "`" + pieces[0][idx] + "`"
+            pieces[0] = '.'.join(pieces[0])
 
         output[pieces[0]] = pieces[1].upper().split(',')
         new_privs = frozenset(output[pieces[0]])
@@ -338,7 +342,7 @@ def privileges_unpack(priv):
 
     return output
 
-def privileges_revoke(cursor, user,host,db_table,priv,grant_option):
+def privileges_revoke(cursor, user,host,db_table,grant_option):
     # Escape '%' since mysql db.execute() uses a format string
     db_table = db_table.replace('%', '%%')
     if grant_option:
@@ -346,8 +350,7 @@ def privileges_revoke(cursor, user,host,db_table,priv,grant_option):
         query.append("FROM %s@%s")
         query = ' '.join(query)
         cursor.execute(query, (user, host))
-    priv_string = ",".join([p for p in priv if p not in ('GRANT', 'REQUIRESSL')])
-    query = ["REVOKE %s ON %s" % (priv_string, mysql_quote_identifier(db_table, 'table'))]
+    query = ["REVOKE ALL PRIVILEGES ON %s" % mysql_quote_identifier(db_table, 'table')]
     query.append("FROM %s@%s")
     query = ' '.join(query)
     cursor.execute(query, (user, host))
@@ -356,7 +359,7 @@ def privileges_grant(cursor, user,host,db_table,priv):
     # Escape '%' since mysql db.execute uses a format string and the
     # specification of db and table often use a % (SQL wildcard)
     db_table = db_table.replace('%', '%%')
-    priv_string = ",".join([p for p in priv if p not in ('GRANT', 'REQUIRESSL')])
+    priv_string = ",".join(filter(lambda x: x not in [ 'GRANT', 'REQUIRESSL' ], priv))
     query = ["GRANT %s ON %s" % (priv_string, mysql_quote_identifier(db_table, 'table'))]
     query.append("TO %s@%s")
     if 'GRANT' in priv:

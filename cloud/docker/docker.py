@@ -1246,10 +1246,16 @@ class DockerManager(object):
             self.module.fail_json(msg="Failed to pull the specified image: %s" % resource, error=repr(e))
 
     def create_containers(self, count=1):
+        try:
+            mem_limit = _human_to_bytes(self.module.params.get('memory_limit'))
+        except ValueError as e:
+            self.module.fail_json(msg=str(e))
+
         params = {'image':        self.module.params.get('image'),
                   'command':      self.module.params.get('command'),
                   'ports':        self.exposed_ports,
                   'volumes':      self.volumes,
+                  'mem_limit':    mem_limit,
                   'environment':  self.env,
                   'hostname':     self.module.params.get('hostname'),
                   'domainname':   self.module.params.get('domainname'),

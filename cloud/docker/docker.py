@@ -954,7 +954,7 @@ class DockerManager(object):
             # MEM_LIMIT
 
             expected_mem = _human_to_bytes(self.module.params.get('memory_limit'))
-            actual_mem = container['Config']['Memory']
+            actual_mem = container['HostConfig']['Memory']
 
             if expected_mem and actual_mem != expected_mem:
                 self.reload_reasons.append('memory ({0} => {1})'.format(actual_mem, expected_mem))

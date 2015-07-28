@@ -959,7 +959,7 @@ class DockerManager(object):
             expected_mem = _human_to_bytes(self.module.params.get('memory_limit'))
 
             #For v1.19 API and above use HostConfig, otherwise use Config
-            if docker_api_version >= 1.19:
+            if api_version >= 1.19:
                 actual_mem = container['HostConfig']['Memory']
             else:
                 actual_mem = container['Config']['Memory']

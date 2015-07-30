@@ -124,7 +124,8 @@ class InvalidSource(Exception):
 # Simple version of aptsources.sourceslist.SourcesList.
 # No advanced logic and no backups inside.
 class SourcesList(object):
-    def __init__(self):
+    def __init__(self, module):
+        self.module = module
         self.files = {}  # group sources by file
         self.default_file = self._apt_cfg_file('Dir::Etc::sourcelist')
 
@@ -232,7 +233,7 @@ class SourcesList(object):
             group.append((n, valid, enabled, source, comment))
         self.files[file] = group
 
-    def save(self, module):
+    def save(self):
         for filename, sources in self.files.items():
             if sources:
                 d, fn = os.path.split(filename)
@@ -257,8 +258,8 @@ class SourcesList(object):
                     try:
                         f.write(line)
                     except IOError, err:
-                        module.fail_json(msg="Failed to write to file %s: %s" % (tmp_path, unicode(err)))
-                module.atomic_move(tmp_path, filename)
+                        self.module.fail_json(msg="Failed to write to file %s: %s" % (tmp_path, unicode(err)))
+                self.module.atomic_move(tmp_path, filename)
             else:
                 del self.files[filename]
                 if os.path.exists(filename):
@@ -325,7 +326,7 @@ class UbuntuSourcesList(SourcesList):
     def __init__(self, module, add_ppa_signing_keys_callback=None):
         self.module = module
         self.add_ppa_signing_keys_callback = add_ppa_signing_keys_callback
-        super(UbuntuSourcesList, self).__init__()
+        super(UbuntuSourcesList, self).__init__(module)
 
     def _get_ppa_info(self, owner_name, ppa_name):
         lp_api = self.LP_API % (owner_name, ppa_name)
@@ -434,7 +435,7 @@ def main():
         sourceslist = UbuntuSourcesList(module,
             add_ppa_signing_keys_callback=get_add_ppa_signing_key_callback(module))
     elif isinstance(distro, aptsources_distro.DebianDistribution) or isinstance(distro, aptsources_distro.Distribution):
-        sourceslist = SourcesList()
+        sourceslist = SourcesList(module)
     else:
         module.fail_json(msg='Module apt_repository supports only Debian and Ubuntu.')
 
@@ -458,7 +459,7 @@ def main():
 
     if not module.check_mode and changed:
         try:
-            sourceslist.save(module)
+            sourceslist.save()
             if update_cache:
                 cache = apt.Cache()
                 cache.update()

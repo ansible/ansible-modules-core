@@ -240,8 +240,8 @@ class SourcesList(object):
                 fd, tmp_path = tempfile.mkstemp(prefix=".%s-" % fn, dir=d)
 
                 # allow the user to override the default mode
-                this_mode = module.params['mode']
-                module.set_mode_if_different(tmp_path, this_mode, False)
+                this_mode = self.module.params['mode']
+                self.module.set_mode_if_different(tmp_path, this_mode, False)
 
                 f = os.fdopen(fd, 'w')
                 for n, valid, enabled, source, comment in sources:

@@ -733,7 +733,7 @@ def latest(module, items, repoq, yum_basecmd, conf_file, en_repos, dis_repos):
     rc, out, err = module.run_command(yum_basecmd + ['check-update'])
     if rc == 0 and update_all:
         res['results'].append('Nothing to do here, all packages are up to date')
-        return res
+        module.exit_json(**res)
     elif rc == 100:
         available_updates = out.split('\n')
         # build update dictionary
@@ -813,7 +813,7 @@ def latest(module, items, repoq, yum_basecmd, conf_file, en_repos, dis_repos):
         if len(will_update) > 0 or len(pkgs['install']) > 0:
             res['changed'] = True
 
-        return res
+        module.exit_json(**res)
 
     # run commands
     if cmd:     # update all

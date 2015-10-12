@@ -930,11 +930,11 @@ class DockerManager(object):
                     continue
 
             # EXPOSED PORTS
-            expected_exposed_ports = set((image['ContainerConfig']['ExposedPorts'] or {}).keys())
+            expected_exposed_ports = set((image['ContainerConfig'].get('ExposedPorts') or {}).keys())
             for p in (self.exposed_ports or []):
                 expected_exposed_ports.add("/".join(p))
 
-            actually_exposed_ports = set((container["Config"]["ExposedPorts"] or {}).keys())
+            actually_exposed_ports = set((container["Config"].get("ExposedPorts") or {}).keys())
 
             if actually_exposed_ports != expected_exposed_ports:
                 self.reload_reasons.append('exposed_ports ({0} => {1})'.format(actually_exposed_ports, expected_exposed_ports))
@@ -943,11 +943,11 @@ class DockerManager(object):
 
             # VOLUMES
 
-            expected_volume_keys = set((image['ContainerConfig']['Volumes'] or {}).keys())
+            expected_volume_keys = set((image['ContainerConfig'].get('Volumes') or {}).keys())
             if self.volumes:
                 expected_volume_keys.update(self.volumes.keys())
 
-            actual_volume_keys = set((container['Config']['Volumes'] or {}).keys())
+            actual_volume_keys = set((container['Config'].get('Volumes') or {}).keys())
 
             if actual_volume_keys != expected_volume_keys:
                 self.reload_reasons.append('volumes ({0} => {1})'.format(actual_volume_keys, expected_volume_keys))
@@ -975,7 +975,7 @@ class DockerManager(object):
 
             expected_env = {}
 
-            for image_env in image['ContainerConfig']['Env'] or []:
+            for image_env in image['ContainerConfig'].get('Env') or []:
                 name, value = image_env.split('=', 1)
                 expected_env[name] = value
 
@@ -984,7 +984,7 @@ class DockerManager(object):
                     expected_env[name] = str(value)
 
             actual_env = {}
-            for container_env in container['Config']['Env'] or []:
+            for container_env in container['Config'].get('Env') or []:
                 name, value = container_env.split('=', 1)
                 actual_env[name] = value
 
@@ -1047,7 +1047,7 @@ class DockerManager(object):
 
             if self.lxc_conf:
                 expected_lxc = set(self.lxc_conf)
-                actual_lxc = set(container['HostConfig']['LxcConf'] or [])
+                actual_lxc = set(container['HostConfig'].get('LxcConf') or [])
                 if actual_lxc != expected_lxc:
                     self.reload_reasons.append('lxc_conf ({0} => {1})'.format(actual_lxc, expected_lxc))
                     differing.append(container)
@@ -1070,7 +1070,7 @@ class DockerManager(object):
                     expected_binds.add("{0}:{1}:{2}".format(host_path, container_path, mode))
 
             actual_binds = set()
-            for bind in (container['HostConfig']['Binds'] or []):
+            for bind in (container['HostConfig'].get('Binds') or []):
                 if len(bind.split(':')) == 2:
                     actual_binds.add(bind + ":rw")
                 else:
@@ -1098,7 +1098,7 @@ class DockerManager(object):
 
                     expected_bound_ports[container_port] = [bind]
 
-            actual_bound_ports = container['HostConfig']['PortBindings'] or {}
+            actual_bound_ports = container['HostConfig'].get('PortBindings') or {}
 
             if actual_bound_ports != expected_bound_ports:
                 self.reload_reasons.append('port bindings ({0} => {1})'.format(actual_bound_ports, expected_bound_ports))
@@ -1125,7 +1125,7 @@ class DockerManager(object):
             for link, alias in (self.links or {}).iteritems():
                 expected_links.add("/{0}:{1}/{2}".format(link, container["Name"], alias))
 
-            actual_links = set(container['HostConfig']['Links'] or [])
+            actual_links = set(container['HostConfig'].get('Links') or [])
             if actual_links != expected_links:
                 self.reload_reasons.append('links ({0} => {1})'.format(actual_links, expected_links))
                 differing.append(container)
@@ -1143,7 +1143,7 @@ class DockerManager(object):
             # DNS
 
             expected_dns = set(self.module.params.get('dns') or [])
-            actual_dns = set(container['HostConfig']['Dns'] or [])
+            actual_dns = set(container['HostConfig'].get('Dns') or [])
             if actual_dns != expected_dns:
                 self.reload_reasons.append('dns ({0} => {1})'.format(actual_dns, expected_dns))
                 differing.append(container)
@@ -1152,7 +1152,7 @@ class DockerManager(object):
             # VOLUMES_FROM
 
             expected_volumes_from = set(self.module.params.get('volumes_from') or [])
-            actual_volumes_from = set(container['HostConfig']['VolumesFrom'] or [])
+            actual_volumes_from = set(container['HostConfig'].get('VolumesFrom') or [])
             if actual_volumes_from != expected_volumes_from:
                 self.reload_reasons.append('volumes_from ({0} => {1})'.format(actual_volumes_from, expected_volumes_from))
                 differing.append(container)

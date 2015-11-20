@@ -196,10 +196,15 @@ if __name__ == '__main__':
                 notice("Module complete (%s)"%os.getpid())
                 sys.exit(0)
 
-    except Exception, err:
-        notice("error: %s"%(err))
-        print json.dumps({
+    except SystemExit, e:
+        # On python2.4, SystemExit is a subclass of Exception.
+        # This block makes python2.4 behave the same as python2.5+
+        sys.exit(e.code)
+
+    except Exception, e:
+        notice("error: %s"%(e))
+        print(json.dumps({
             "failed" : True,
-            "msg"    : "FATAL ERROR: %s" % str(err)
-        })
+            "msg"    : "FATAL ERROR: %s" % str(e)
+        }))
         sys.exit(1)

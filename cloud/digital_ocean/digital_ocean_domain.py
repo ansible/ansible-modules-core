@@ -22,18 +22,17 @@ short_description: Create/delete a DNS record in DigitalOcean
 description:
      - Create/delete a DNS record in DigitalOcean.
 version_added: "1.6"
+author: "Michael Gregson (@mgregson)"
 options:
   state:
     description:
      - Indicate desired state of the target.
     default: present
     choices: ['present', 'absent']
-  client_id:
-     description:
-     - DigitalOcean manager id.
-  api_key:
+  api_token:
     description:
-     - DigitalOcean api key.
+     - DigitalOcean api token.
+    version_added: "1.9.5"
   id:
     description:
      - Numeric, the droplet id you want to operate on.
@@ -45,7 +44,13 @@ options:
      - The IP address to point a domain at.
 
 notes:
-  - Two environment variables can be used, DO_CLIENT_ID and DO_API_KEY.
+  - Two environment variables can be used, DO_API_KEY and DO_API_TOKEN. They both refer to the v2 token.
+  - As of Ansible 1.9.5 and 2.0, Version 2 of the DigitalOcean API is used, this removes C(client_id) and C(api_key) options in favor of C(api_token).
+  - If you are running Ansible 1.9.4 or earlier you might not be able to use the included version of this module as the API version used has been retired. 
+
+requirements:
+  - "python >= 2.6"
+  - dopy
 '''
 
 
@@ -62,9 +67,9 @@ EXAMPLES = '''
 - digital_ocean: >
       state=present
       name=test_droplet
-      size_id=1
-      region_id=2
-      image_id=3
+      size_id=1gb
+      region_id=sgp1
+      image_id=ubuntu-14-04-x64
   register: test_droplet
 
 - digital_ocean_domain: >
@@ -73,15 +78,14 @@ EXAMPLES = '''
       ip={{ test_droplet.droplet.ip_address }}
 '''
 
-import sys
 import os
 import time
 
 try:
     from dopy.manager import DoError, DoManager
+    HAS_DOPY = True
 except ImportError as e:
-    print "failed=True msg='dopy required for this module'"
-    sys.exit(1)
+    HAS_DOPY = False
 
 class TimeoutError(DoError):
     def __init__(self, msg, id):
@@ -130,8 +134,8 @@ class Domain(JsonfyMixIn):
         return cls(json)
 
     @classmethod
-    def setup(cls, client_id, api_key):
-        cls.manager = DoManager(client_id, api_key)
+    def setup(cls, api_token):
+        cls.manager = DoManager(None, api_token, api_version=2)
         DomainRecord.manager = cls.manager
 
     @classmethod
@@ -166,16 +170,14 @@ def core(module):
         return v
 
     try:
-        # params['client_id'] will be None even if client_id is not passed in
-        client_id = module.params['client_id'] or os.environ['DO_CLIENT_ID']
-        api_key = module.params['api_key'] or os.environ['DO_API_KEY']
+        api_token = module.params['api_token'] or os.environ['DO_API_TOKEN'] or os.environ['DO_API_KEY']
     except KeyError, e:
         module.fail_json(msg='Unable to load %s' % e.message)
 
     changed = True
     state = module.params['state']
 
-    Domain.setup(client_id, api_key)
+    Domain.setup(api_token)
     if state in ('present'):
         domain = Domain.find(id=module.params["id"])
 
@@ -190,7 +192,7 @@ def core(module):
             records = domain.records()
             at_record = None
             for record in records:
-                if record.name == "@":
+                if record.name == "@" and record.record_type == 'A':
                     at_record = record
 
             if not at_record.data == getkeyordie("ip"):
@@ -218,8 +220,7 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             state = dict(choices=['present', 'absent'], default='present'),
-            client_id = dict(aliases=['CLIENT_ID'], no_log=True),
-            api_key = dict(aliases=['API_KEY'], no_log=True),
+            api_token = dict(aliases=['API_TOKEN'], no_log=True),
             name = dict(type='str'),
             id = dict(aliases=['droplet_id'], type='int'),
             ip = dict(type='str'),
@@ -228,6 +229,8 @@ def main():
             ['id', 'name'],
         ),
     )
+    if not HAS_DOPY:
+        module.fail_json(msg='dopy required for this module')
 
     try:
         core(module)
@@ -238,5 +241,5 @@ def main():
 
 # import module snippets
 from ansible.module_utils.basic import *
-
-main()
+if __name__ == '__main__':
+    main()

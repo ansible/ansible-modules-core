@@ -19,6 +19,9 @@
 # WANT_JSON
 # POWERSHELL_COMMON
 
+# temporary fix to keep this module working in 2.0. Needs parameter validation fixes to work in future versions
+Set-StrictMode -Off
+
 $params = Parse-Args $args;
 
 $result = New-Object psobject @{
@@ -26,6 +29,7 @@ $result = New-Object psobject @{
     changed = $false
 }
 
+# TODO: StrictMode fix
 If ($params.url) {
     $url = $params.url
 }
@@ -33,6 +37,7 @@ Else {
     Fail-Json $result "missing required argument: url"
 }
 
+# TODO: StrictMode fix
 If ($params.dest) {
     $dest = $params.dest
 }

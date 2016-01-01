@@ -1606,8 +1606,9 @@ class DarwinUser(User):
                 msg='Cannot create user "%s".'
                 % self.name, err=err, out=out, rc=rc)
 
+        if self.group:
+            self._make_group_numerical()
 
-        self._make_group_numerical()
         if self.uid is None:
             self.uid = str(self._get_next_uid())
 

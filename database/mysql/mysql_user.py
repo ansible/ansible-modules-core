@@ -183,7 +183,7 @@ def get_mode(cursor):
         mode = 'NOTANSI'
     return mode
 
-def user_exists(cursor, user, host, host_all):
+def user_exists(cursor, user, host, host_all=False):
     if host_all:
         cursor.execute("SELECT count(*) FROM user WHERE user = %s", user)
     else:

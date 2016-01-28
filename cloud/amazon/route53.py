@@ -131,7 +131,9 @@ options:
     required: false
     default: null
     version_added: "2.0"
-author: "Bruce Pennypacker (@bpennypacker)"
+author:
+  - "Bruce Pennypacker (@bpennypacker)"
+  - "Mike Buzzetti <mike.buzzetti@gmail.com>"
 extends_documentation_fragment: aws
 '''
 

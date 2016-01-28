@@ -26,7 +26,7 @@ DOCUMENTATION = '''
 module: authorized_key
 short_description: Adds or removes an SSH authorized key
 description:
-     - Adds or removes an SSH authorized key for a user from a remote host.
+    - "Adds or removes SSH authorized keys for particular user accounts"
 version_added: "0.5"
 options:
   user:
@@ -80,8 +80,6 @@ options:
     choices: [ "yes", "no" ]
     default: "no"
     version_added: "1.9"
-description:
-    - "Adds or removes authorized keys for particular user accounts"
 author: "Ansible Core Team"
 '''
 

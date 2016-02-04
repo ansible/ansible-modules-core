@@ -1542,6 +1542,8 @@ class DarwinUser(User):
             target = set([])
 
         for remove in current - target:
+            if self.module.check_mode:
+                return (0, '', '', True)
             (_rc, _err, _out) = self.__modify_group(remove, 'delete')
             rc += rc
             out += _out
@@ -1549,6 +1551,8 @@ class DarwinUser(User):
             changed = True
 
         for add in target - current:
+            if self.module.check_mode:
+                return (0, '', '', True)
             (_rc, _err, _out) = self.__modify_group(add, 'add')
             rc += _rc
             out += _out
@@ -1585,6 +1589,8 @@ class DarwinUser(User):
             if not self.name in hidden_users:
                 cmd = [ 'defaults', 'write', plist_file,
                         'HiddenUsersList', '-array-add', self.name ]
+                if self.module.check_mode:
+                    return 0
                 (rc, out, err) = self.execute_command(cmd)
                 if rc != 0:
                     self.module.fail_json(
@@ -1597,6 +1603,8 @@ class DarwinUser(User):
 
                 cmd = [ 'defaults', 'write', plist_file,
                         'HiddenUsersList', '-array' ] +  hidden_users
+                if self.module.check_mode:
+                    return 0
                 (rc, out, err) = self.execute_command(cmd)
                 if rc != 0:
                     self.module.fail_json(
@@ -1699,6 +1707,8 @@ class DarwinUser(User):
                     cmd = self._get_dscl()
                     cmd += [ '-create', '/Users/%s' % self.name,
                              field[1], self.__dict__[field[0]]]
+                    if self.module.check_mode:
+                        return (0, '', '')
                     (rc, _err, _out) = self.execute_command(cmd)
                     if rc != 0:
                         self.module.fail_json(
@@ -1708,6 +1718,8 @@ class DarwinUser(User):
                     out += _out
                     err += _err
         if self.update_password == 'always' and self.password is not None:
+            if self.module.check_mode:
+                return (0, '', '')
             (rc, _err, _out) = self._change_user_password()
             out += _out
             err += _err

@@ -151,9 +151,14 @@ import itertools
 
 # APT related constants
 APT_ENV_VARS = dict(
-  DEBIAN_FRONTEND = 'noninteractive',
-  DEBIAN_PRIORITY = 'critical',
-  LANG = 'C'
+        DEBIAN_FRONTEND = 'noninteractive',
+        DEBIAN_PRIORITY = 'critical',
+        # We screenscrape apt-get and aptitude output for information so we need
+        # to make sure we use the C locale when running commands
+        LANG = 'C',
+        LC_ALL = 'C',
+        LC_MESSAGES = 'C',
+        LC_CTYPE = 'C',
 )
 
 DPKG_OPTIONS = 'force-confdef,force-confold'
@@ -337,9 +342,6 @@ def install(m, pkgspec, cache, upgrade=False, default_release=None,
         else:
             check_arg = ''
 
-        for (k,v) in APT_ENV_VARS.iteritems():
-            os.environ[k] = v
-
         if build_dep:
             cmd = "%s -y %s %s %s build-dep %s" % (APT_GET_CMD, dpkg_options, force_yes, check_arg, packages)
         else:
@@ -437,9 +439,6 @@ def remove(m, pkgspec, cache, purge=False,
         else:
             purge = ''
 
-        for (k,v) in APT_ENV_VARS.iteritems():
-            os.environ[k] = v
-
         cmd = "%s -q -y %s %s remove %s" % (APT_GET_CMD, dpkg_options, purge, packages)
 
         if m.check_mode:
@@ -483,9 +482,6 @@ def upgrade(m, mode="yes", force=False, default_release=None,
 
     apt_cmd_path = m.get_bin_path(apt_cmd, required=True)
 
-    for (k,v) in APT_ENV_VARS.iteritems():
-        os.environ[k] = v
-
     cmd = '%s -y %s %s %s %s' % (apt_cmd_path, dpkg_options,
                                     force_yes, check_arg, upgrade_command)
 
@@ -518,6 +514,8 @@ def main():
         required_one_of = [['package', 'upgrade', 'update_cache', 'deb']],
         supports_check_mode = True
     )
+
+    module.run_command_environ_update = APT_ENV_VARS
 
     if not HAS_PYTHON_APT:
         try:

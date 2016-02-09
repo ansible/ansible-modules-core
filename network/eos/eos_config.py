@@ -137,23 +137,20 @@ EXAMPLES = """
     parents: ['ip access-list test']
     before: ['no ip access-list test']
     replace: block
-
 """
 
 RETURN = """
-
-lines:
+updates:
   description: The set of commands that will be pushed to the remote device
   returned: always
   type: list
   sample: ['...', '...']
 
-response:
+responses:
   description: The set of responses from issuing the commands on the device
   retured: always
   type: list
   sample: ['...', '...']
-
 """
 import re
 import itertools
@@ -263,10 +260,10 @@ def main():
     if commands:
         if not module.check_mode:
             response = module.configure(candidate)
-            result['response'] = response
+            result['responses'] = response
         result['changed'] = True
 
-    result['lines'] = candidate
+    result['updates'] = candidate
     return module.exit_json(**result)
 
 from ansible.module_utils.basic import *

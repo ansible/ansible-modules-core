@@ -407,7 +407,7 @@ def main():
             login_port=dict(default=3306, type='int'),
             login_unix_socket=dict(default=None),
             user=dict(required=True, aliases=['name']),
-            password=dict(default=None, no_log=True),
+            password=dict(default=None, no_log=True, type='str'),
             encrypted=dict(default=False, type='bool'),
             host=dict(default="localhost"),
             state=dict(default="present", choices=["absent", "present"]),

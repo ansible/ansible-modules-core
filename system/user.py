@@ -78,6 +78,7 @@ options:
         required: false
         description:
             - Optionally set a home skeleton directory. Requires createhome option!
+        version_added: "2.0"
     password:
         required: false
         description:

@@ -80,6 +80,7 @@ options:
   remote_src:
     description:
       - If False, it will search for src at originating/master machine, if True it will go to the remote/target machine for the src. Default is False.
+      - Currently remote_src does not support recursive copying.
     choices: [ "True", "False" ]
     required: false
     default: "False"

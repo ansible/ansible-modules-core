@@ -21,7 +21,7 @@
 DOCUMENTATION = '''
 ---
 module: user
-author: Stephen Fromm
+author: "Stephen Fromm (@sfromm)"
 version_added: "0.2"
 short_description: Manage user accounts
 requirements: [ useradd, userdel, usermod ]
@@ -74,13 +74,18 @@ options:
         required: false
         description:
             - Optionally set the user's home directory.
+    skeleton:
+        required: false
+        description:
+            - Optionally set a home skeleton directory. Requires createhome option!
+        version_added: "2.0"
     password:
         required: false
         description:
             - Optionally set the user's password to this crypted value.  See
               the user example in the github examples directory for what this looks
-              like in a playbook. The `FAQ <http://docs.ansible.com/faq.html#how-do-i-generate-crypted-passwords-for-the-user-module>`_
-              contains details on various ways to generate these password values.
+              like in a playbook. See U(http://docs.ansible.com/ansible/faq.html#how-do-i-generate-crypted-passwords-for-the-user-module)
+              for details on various ways to generate these password values.
               Note on Darwin system, this value has to be cleartext.
               Beware of security issues.
     state:
@@ -208,7 +213,6 @@ EXAMPLES = '''
 import os
 import pwd
 import grp
-import syslog
 import platform
 import socket
 import time
@@ -253,13 +257,13 @@ class User(object):
         self.group      = module.params['group']
         self.groups     = module.params['groups']
         self.comment    = module.params['comment']
-        self.home       = module.params['home']
         self.shell      = module.params['shell']
         self.password   = module.params['password']
         self.force      = module.params['force']
         self.remove     = module.params['remove']
         self.createhome = module.params['createhome']
         self.move_home  = module.params['move_home']
+        self.skeleton   = module.params['skeleton']
         self.system     = module.params['system']
         self.login_class = module.params['login_class']
         self.append     = module.params['append']
@@ -269,7 +273,11 @@ class User(object):
         self.ssh_comment = module.params['ssh_key_comment']
         self.ssh_passphrase = module.params['ssh_key_passphrase']
         self.update_password = module.params['update_password']
+        self.home    = None
         self.expires = None
+
+        if module.params['home'] is not None:
+            self.home = os.path.expanduser(module.params['home'])
 
         if module.params['expires']:
             try:
@@ -282,16 +290,13 @@ class User(object):
         else:
             self.ssh_file = os.path.join('.ssh', 'id_%s' % self.ssh_type)
 
-        # select whether we dump additional debug info through syslog
-        self.syslogging = False
 
-
-    def execute_command(self, cmd, use_unsafe_shell=False, data=None):
-        if self.syslogging:
-            syslog.openlog('ansible-%s' % os.path.basename(__file__))
-            syslog.syslog(syslog.LOG_NOTICE, 'Command %s' % '|'.join(cmd))
-
-        return self.module.run_command(cmd, use_unsafe_shell=use_unsafe_shell, data=data)
+    def execute_command(self, cmd, use_unsafe_shell=False, data=None, obey_checkmode=True):
+        if self.module.check_mode and obey_checkmode:
+#            self.module.debug('In check mode, would have run: "%s"' % cmd)
+            return (0, '','')
+        else:
+            return self.module.run_command(cmd, use_unsafe_shell=use_unsafe_shell, data=data)
 
     def remove_user_userdel(self):
         cmd = [self.module.get_bin_path('userdel', True)]
@@ -360,6 +365,10 @@ class User(object):
 
         if self.createhome:
             cmd.append('-m')
+
+            if self.skeleton is not None:
+                cmd.append('-k')
+                cmd.append(self.skeleton)
         else:
             cmd.append('-M')
 
@@ -379,9 +388,8 @@ class User(object):
         if not os.access(usermod_path, os.X_OK):
             return False
 
-        cmd = [usermod_path]
-        cmd.append('--help')
-        rc, data1, data2 = self.execute_command(cmd)
+        cmd = [usermod_path, '--help']
+        (rc, data1, data2) = self.execute_command(cmd, obey_checkmode=False)
         helpout = data1 + data2
 
         # check if --append exists
@@ -471,8 +479,6 @@ class User(object):
         # skip if no changes to be made
         if len(cmd) == 1:
             return (None, '', '')
-        elif self.module.check_mode:
-            return (0, '', '')
 
         cmd.append(self.name)
         return self.execute_command(cmd)
@@ -565,11 +571,13 @@ class User(object):
 
     def ssh_key_gen(self):
         info = self.user_info()
-        if not os.path.exists(info[5]):
+        if not os.path.exists(info[5]) and not self.module.check_mode:
             return (1, '', 'User %s home directory does not exist' % self.name)
         ssh_key_file = self.get_ssh_key_path()
         ssh_dir = os.path.dirname(ssh_key_file)
         if not os.path.exists(ssh_dir):
+            if self.module.check_mode:
+                return (0, '', '')
             try:
                 os.mkdir(ssh_dir, 0700)
                 os.chown(ssh_dir, info[2], info[3])
@@ -593,7 +601,7 @@ class User(object):
             cmd.append('')
 
         (rc, out, err) = self.execute_command(cmd)
-        if rc == 0:
+        if rc == 0 and not self.module.check_mode:
             # If the keys were successfully created, we should be able
             # to tweak ownership.
             os.chown(ssh_key_file, info[2], info[3])
@@ -609,7 +617,7 @@ class User(object):
         cmd.append('-f')
         cmd.append(ssh_key_file)
 
-        return self.execute_command(cmd)
+        return self.execute_command(cmd, obey_checkmode=False)
 
     def get_ssh_public_key(self):
         ssh_public_key_file = '%s.pub' % self.get_ssh_key_path()
@@ -635,10 +643,14 @@ class User(object):
 
     def create_homedir(self, path):
         if not os.path.exists(path):
-            # use /etc/skel if possible
-            if os.path.exists('/etc/skel'):
+            if self.skeleton is not None:
+                skeleton = self.skeleton
+            else:
+                skeleton = '/etc/skel'
+
+            if os.path.exists(skeleton):
                 try:
-                    shutil.copytree('/etc/skel', path, symlinks=True)
+                    shutil.copytree(skeleton, path, symlinks=True)
                 except OSError, e:
                     self.module.exit_json(failed=True, msg="%s" % e)
         else:
@@ -725,6 +737,10 @@ class FreeBsdUser(User):
 
         if self.createhome:
             cmd.append('-m')
+
+            if self.skeleton is not None:
+                cmd.append('-k')
+                cmd.append(self.skeleton)
 
         if self.shell is not None:
             cmd.append('-s')
@@ -913,12 +929,16 @@ class OpenBSDUser(User):
             cmd.append('-L')
             cmd.append(self.login_class)
 
-        if self.password is not None:
+        if self.password is not None and self.password != '*':
             cmd.append('-p')
             cmd.append(self.password)
 
         if self.createhome:
             cmd.append('-m')
+
+            if self.skeleton is not None:
+                cmd.append('-k')
+                cmd.append(self.skeleton)
 
         cmd.append(self.name)
         return self.execute_command(cmd)
@@ -994,7 +1014,7 @@ class OpenBSDUser(User):
             # find current login class
             user_login_class = None
             userinfo_cmd = [self.module.get_bin_path('userinfo', True), self.name]
-            (rc, out, err) = self.execute_command(userinfo_cmd)
+            (rc, out, err) = self.execute_command(userinfo_cmd, obey_checkmode=False)
 
             for line in out.splitlines():
                 tokens = line.split()
@@ -1007,15 +1027,14 @@ class OpenBSDUser(User):
                 cmd.append('-L')
                 cmd.append(self.login_class)
 
-        if self.update_password == 'always' and self.password is not None and info[1] != self.password:
+        if self.update_password == 'always' and self.password is not None \
+           and self.password != '*' and info[1] != self.password:
             cmd.append('-p')
             cmd.append(self.password)
 
         # skip if no changes to be made
         if len(cmd) == 1:
             return (None, '', '')
-        elif self.module.check_mode:
-            return (0, '', '')
 
         cmd.append(self.name)
         return self.execute_command(cmd)
@@ -1086,6 +1105,10 @@ class NetBSDUser(User):
 
         if self.createhome:
             cmd.append('-m')
+
+            if self.skeleton is not None:
+                cmd.append('-k')
+                cmd.append(self.skeleton)
 
         cmd.append(self.name)
         return self.execute_command(cmd)
@@ -1169,8 +1192,6 @@ class NetBSDUser(User):
         # skip if no changes to be made
         if len(cmd) == 1:
             return (None, '', '')
-        elif self.module.check_mode:
-            return (0, '', '')
 
         cmd.append(self.name)
         return self.execute_command(cmd)
@@ -1239,16 +1260,18 @@ class SunOS(User):
         if self.createhome:
             cmd.append('-m')
 
+            if self.skeleton is not None:
+                cmd.append('-k')
+                cmd.append(self.skeleton)
+
         cmd.append(self.name)
 
-        if self.module.check_mode:
-            return (0, '', '')
-        else:
-            (rc, out, err) = self.execute_command(cmd)
-            if rc is not None and rc != 0:
-                self.module.fail_json(name=self.name, msg=err, rc=rc)
+        (rc, out, err) = self.execute_command(cmd)
+        if rc is not None and rc != 0:
+            self.module.fail_json(name=self.name, msg=err, rc=rc)
 
-            # we have to set the password by editing the /etc/shadow file 
+        if not self.module.check_mode:
+            # we have to set the password by editing the /etc/shadow file
             if self.password is not None:
                 try:
                     lines = []
@@ -1265,7 +1288,7 @@ class SunOS(User):
                 except Exception, err:
                     self.module.fail_json(msg="failed to update users password: %s" % str(err))
 
-            return (rc, out, err)
+        return (rc, out, err)
 
     def modify_user_usermod(self):
         cmd = [self.module.get_bin_path('usermod', True)]
@@ -1323,20 +1346,19 @@ class SunOS(User):
             cmd.append('-s')
             cmd.append(self.shell)
 
-        if self.module.check_mode:
-            return (0, '', '')
+        # modify the user if cmd will do anything
+        if cmd_len != len(cmd):
+            cmd.append(self.name)
+            (rc, out, err) = self.execute_command(cmd)
+            if rc is not None and rc != 0:
+                self.module.fail_json(name=self.name, msg=err, rc=rc)
         else:
-            # modify the user if cmd will do anything
-            if cmd_len != len(cmd):
-                cmd.append(self.name)
-                (rc, out, err) = self.execute_command(cmd)
-                if rc is not None and rc != 0:
-                    self.module.fail_json(name=self.name, msg=err, rc=rc)
-            else:
-                (rc, out, err) = (None, '', '')
+            (rc, out, err) = (None, '', '')
 
-            # we have to set the password by editing the /etc/shadow file 
-            if self.update_password == 'always' and self.password is not None and info[1] != self.password:
+        # we have to set the password by editing the /etc/shadow file
+        if self.update_password == 'always' and self.password is not None and info[1] != self.password:
+            (rc, out, err) = (0, '', '')
+            if not self.module.check_mode:
                 try:
                     lines = []
                     for line in open(self.SHADOWFILE, 'rb').readlines():
@@ -1345,7 +1367,7 @@ class SunOS(User):
                             lines.append(line)
                             continue
                         fields[1] = self.password
-                        fields[2] = str(int(time.time() / 86400))	
+                        fields[2] = str(int(time.time() / 86400))
                         line = ':'.join(fields)
                         lines.append('%s\n' % line)
                     open(self.SHADOWFILE, 'w+').writelines(lines)
@@ -1353,7 +1375,7 @@ class SunOS(User):
                 except Exception, err:
                     self.module.fail_json(msg="failed to update users password: %s" % str(err))
 
-            return (rc, out, err)
+        return (rc, out, err)
 
 # ===========================================
 class DarwinUser(User):
@@ -1393,7 +1415,7 @@ class DarwinUser(User):
     def _list_user_groups(self):
         cmd = self._get_dscl()
         cmd += [ '-search', '/Groups', 'GroupMembership', self.name ]
-        (rc, out, err) = self.execute_command(cmd)
+        (rc, out, err) = self.execute_command(cmd, obey_checkmode=False)
         groups = []
         for line in out.splitlines():
             if line.startswith(' ') or line.startswith(')'):
@@ -1405,7 +1427,7 @@ class DarwinUser(User):
         '''Return user PROPERTY as given my dscl(1) read or None if not found.'''
         cmd = self._get_dscl()
         cmd += [ '-read', '/Users/%s' % self.name, property ]
-        (rc, out, err) = self.execute_command(cmd)
+        (rc, out, err) = self.execute_command(cmd, obey_checkmode=False)
         if rc != 0:
             return None
         # from dscl(1)
@@ -1428,7 +1450,7 @@ class DarwinUser(User):
         '''Return the next available uid'''
         cmd = self._get_dscl()
         cmd += ['-list', '/Users', 'UniqueID']
-        (rc, out, err) = self.execute_command(cmd)
+        (rc, out, err) = self.execute_command(cmd, obey_checkmode=False)
         if rc != 0:
             self.module.fail_json(
                 msg="Unable to get the next available uid",
@@ -1461,8 +1483,7 @@ class DarwinUser(User):
             cmd += [ '-create', '/Users/%s' % self.name, 'Password', '*']
         (rc, out, err) = self.execute_command(cmd)
         if rc != 0:
-            self.module.fail_json(msg='Error when changing password',
-                                  err=err, out=out, rc=rc)
+            self.module.fail_json(msg='Error when changing password', err=err, out=out, rc=rc)
         return (rc, out, err)
 
     def _make_group_numerical(self):
@@ -1483,13 +1504,11 @@ class DarwinUser(User):
             option = '-a'
         else:
             option = '-d'
-        cmd = [ 'dseditgroup', '-o', 'edit', option, self.name,
-                '-t', 'user', group ]
+        cmd = [ 'dseditgroup', '-o', 'edit', option, self.name, '-t', 'user', group ]
         (rc, out, err) = self.execute_command(cmd)
         if rc != 0:
             self.module.fail_json(msg='Cannot %s user "%s" to group "%s".'
-                                  % (action, self.name, group),
-                                  err=err, out=out, rc=rc)
+                                  % (action, self.name, group), err=err, out=out, rc=rc)
         return (rc, out, err)
 
     def _modify_group(self):
@@ -1532,7 +1551,7 @@ class DarwinUser(User):
 
         # http://support.apple.com/kb/HT5017?viewlocale=en_US
         cmd = [ 'defaults', 'read', plist_file, 'HiddenUsersList' ]
-        (rc, out, err) = self.execute_command(cmd)
+        (rc, out, err) = self.execute_command(cmd, obey_checkmode=False)
         # returned value is
         # (
         #   "_userA",
@@ -1553,28 +1572,23 @@ class DarwinUser(User):
                         'HiddenUsersList', '-array-add', self.name ]
                 (rc, out, err) = self.execute_command(cmd)
                 if rc != 0:
-                    self.module.fail_json(
-                        msg='Cannot user "%s" to hidden user list.'
-                        % self.name, err=err, out=out, rc=rc)
+                    self.module.fail_json( msg='Cannot user "%s" to hidden user list.' % self.name, err=err, out=out, rc=rc)
                 return 0
         else:
             if self.name in hidden_users:
                 del(hidden_users[hidden_users.index(self.name)])
 
-                cmd = [ 'defaults', 'write', plist_file,
-                        'HiddenUsersList', '-array' ] +  hidden_users
+                cmd = [ 'defaults', 'write', plist_file, 'HiddenUsersList', '-array' ] +  hidden_users
                 (rc, out, err) = self.execute_command(cmd)
                 if rc != 0:
-                    self.module.fail_json(
-                        msg='Cannot remove user "%s" from hidden user list.'
-                        % self.name, err=err, out=out, rc=rc)
+                    self.module.fail_json( msg='Cannot remove user "%s" from hidden user list.' % self.name, err=err, out=out, rc=rc)
                 return 0
 
     def user_exists(self):
         '''Check is SELF.NAME is a known user on the system.'''
         cmd = self._get_dscl()
         cmd += [ '-list', '/Users/%s' % self.name]
-        (rc, out, err) = self.execute_command(cmd)
+        (rc, out, err) = self.execute_command(cmd, obey_checkmode=False)
         return rc == 0
 
     def remove_user(self):
@@ -1586,9 +1600,7 @@ class DarwinUser(User):
         (rc, out, err) = self.execute_command(cmd)
 
         if rc != 0:
-            self.module.fail_json(
-                msg='Cannot delete user "%s".'
-                % self.name, err=err, out=out, rc=rc)
+            self.module.fail_json( msg='Cannot delete user "%s".' % self.name, err=err, out=out, rc=rc)
 
         if self.force:
             if os.path.exists(info[5]):
@@ -1602,13 +1614,10 @@ class DarwinUser(User):
         cmd += [ '-create', '/Users/%s' % self.name]
         (rc, err, out) = self.execute_command(cmd)
         if rc != 0:
-            self.module.fail_json(
-                msg='Cannot create user "%s".'
-                % self.name, err=err, out=out, rc=rc)
+            self.module.fail_json( msg='Cannot create user "%s".' % self.name, err=err, out=out, rc=rc)
 
-        if self.group:
-            self._make_group_numerical()
 
+        self._make_group_numerical()
         if self.uid is None:
             self.uid = str(self._get_next_uid())
 
@@ -1616,20 +1625,19 @@ class DarwinUser(User):
         if self.createhome:
             if self.home is None:
                 self.home = '/Users/%s' % self.name
-            if not os.path.exists(self.home):
-                os.makedirs(self.home)
-            self.chown_homedir(int(self.uid), int(self.group), self.home)
+            if not self.module.check_mode:
+                if not os.path.exists(self.home):
+                    os.makedirs(self.home)
+                self.chown_homedir(int(self.uid), int(self.group), self.home)
 
         for field in self.fields:
             if self.__dict__.has_key(field[0]) and self.__dict__[field[0]]:
 
                 cmd = self._get_dscl()
-                cmd += [ '-create', '/Users/%s' % self.name,
-                         field[1], self.__dict__[field[0]]]
+                cmd += [ '-create', '/Users/%s' % self.name, field[1], self.__dict__[field[0]]]
                 (rc, _err, _out) = self.execute_command(cmd)
                 if rc != 0:
-                    self.module.fail_json(
-                        msg='Cannot add property "%s" to user "%s".'
+                    self.module.fail_json( msg='Cannot add property "%s" to user "%s".'
                         % (field[0], self.name), err=err, out=out, rc=rc)
 
                 out += _out
@@ -1645,9 +1653,10 @@ class DarwinUser(User):
         self._update_system_user()
         # here we don't care about change status since it is a creation,
         # thus changed is always true.
-        (rc, _out, _err, changed) = self._modify_group()
-        out += _out
-        err += _err
+        if self.groups:
+            (rc, _out, _err, changed) = self._modify_group()
+            out += _out
+            err += _err
         return (rc, err, out)
 
     def modify_user(self):
@@ -1655,15 +1664,15 @@ class DarwinUser(User):
         out = ''
         err = ''
 
-        self._make_group_numerical()
+        if self.group:
+            self._make_group_numerical()
 
         for field in self.fields:
             if self.__dict__.has_key(field[0]) and self.__dict__[field[0]]:
                 current = self._get_user_property(field[1])
                 if current is None or current != self.__dict__[field[0]]:
                     cmd = self._get_dscl()
-                    cmd += [ '-create', '/Users/%s' % self.name,
-                             field[1], self.__dict__[field[0]]]
+                    cmd += [ '-create', '/Users/%s' % self.name, field[1], self.__dict__[field[0]]]
                     (rc, _err, _out) = self.execute_command(cmd)
                     if rc != 0:
                         self.module.fail_json(
@@ -1678,12 +1687,13 @@ class DarwinUser(User):
             err += _err
             changed = rc
 
-        (rc, _out, _err, _changed) = self._modify_group()
-        out += _out
-        err += _err
+        if self.groups:
+            (rc, _out, _err, _changed) = self._modify_group()
+            out += _out
+            err += _err
 
-        if _changed is True:
-            changed = rc
+            if _changed is True:
+                changed = rc
 
         rc = self._update_system_user()
         if rc == 0:
@@ -1747,6 +1757,10 @@ class AIX(User):
 
         if self.createhome:
             cmd.append('-m')
+
+            if self.skeleton is not None:
+                cmd.append('-k')
+                cmd.append(self.skeleton)
 
         cmd.append(self.name)
         (rc, out, err) = self.execute_command(cmd)
@@ -1819,8 +1833,6 @@ class AIX(User):
         # skip if no changes to be made
         if len(cmd) == 1:
             (rc, out, err) = (None, '', '')
-        elif self.module.check_mode:
-            return (True, '', '')
         else:
             cmd.append(self.name)
             (rc, out, err) = self.execute_command(cmd)
@@ -1986,8 +1998,6 @@ class HPUX(User):
         # skip if no changes to be made
         if len(cmd) == 1:
             return (None, '', '')
-        elif self.module.check_mode:
-            return (0, '', '')
 
         cmd.append(self.name)
         return self.execute_command(cmd)
@@ -2012,13 +2022,14 @@ def main():
             comment=dict(default=None, type='str'),
             home=dict(default=None, type='str'),
             shell=dict(default=None, type='str'),
-            password=dict(default=None, type='str'),
+            password=dict(default=None, type='str', no_log=True),
             login_class=dict(default=None, type='str'),
             # following options are specific to userdel
             force=dict(default='no', type='bool'),
             remove=dict(default='no', type='bool'),
             # following options are specific to useradd
             createhome=dict(default='yes', type='bool'),
+            skeleton=dict(default=None, type='str'),
             system=dict(default='no', type='bool'),
             # following options are specific to usermod
             move_home=dict(default='no', type='bool'),
@@ -2029,7 +2040,7 @@ def main():
             ssh_key_type=dict(default=ssh_defaults['type'], type='str'),
             ssh_key_file=dict(default=None, type='str'),
             ssh_key_comment=dict(default=ssh_defaults['comment'], type='str'),
-            ssh_key_passphrase=dict(default=None, type='str'),
+            ssh_key_passphrase=dict(default=None, type='str', no_log=True),
             update_password=dict(default='always',choices=['always','on_create'],type='str'),
             expires=dict(default=None, type='float'),
         ),
@@ -2038,11 +2049,10 @@ def main():
 
     user = User(module)
 
-    if user.syslogging:
-        syslog.openlog('ansible-%s' % os.path.basename(__file__))
-        syslog.syslog(syslog.LOG_NOTICE, 'User instantiated - platform %s' % user.platform)
-        if user.distribution:
-            syslog.syslog(syslog.LOG_NOTICE, 'User instantiated - distribution %s' % user.distribution)
+#    module.debug('User instantiated - platform %s' % user.platform)
+    if user.distribution:
+        # module.debug('User instantiated - distribution %s' % user.distribution)
+        pass
 
     rc = None
     out = ''
@@ -2064,8 +2074,11 @@ def main():
             if module.check_mode:
                 module.exit_json(changed=True)
             (rc, out, err) = user.create_user()
-            result['system'] = user.system
-            result['createhome'] = user.createhome
+            if module.check_mode:
+                result['system'] = user.name
+            else:
+                result['system'] = user.system
+                result['createhome'] = user.createhome
         else:
             # modify user (note: this function is check mode aware)
             (rc, out, err) = user.modify_user()
@@ -2111,6 +2124,7 @@ def main():
 
         # deal with ssh key
         if user.sshkeygen:
+            # generate ssh key (note: this function is check mode aware)
             (rc, out, err) = user.ssh_key_gen()
             if rc is not None and rc != 0:
                 module.fail_json(name=user.name, msg=err, rc=rc)
@@ -2128,4 +2142,5 @@ def main():
 
 # import module snippets
 from ansible.module_utils.basic import *
-main()
+if __name__ == '__main__':
+    main()

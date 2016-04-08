@@ -101,10 +101,10 @@ If ($account_locked -ne $null) {
 
 $groups = Get-Attr $params "groups" $null
 If ($groups -ne $null) {
-    If ($groups.GetType().Name -eq "String") {
+    If ($groups -is [System.String]) {
         [string[]]$groups = $groups.Split(",")
     }
-    ElseIf ($groups.GetType().Name -ne "Object[]") {
+    ElseIf ($groups -isnot [System.Collections.IList]) {
         Fail-Json $result "groups must be a string or array"
     }
     $groups = $groups | ForEach { ([string]$_).Trim() } | Where { $_ }
@@ -124,7 +124,7 @@ $user_obj = Get-User $username
 If ($state -eq 'present') {
     # Add or update user
     try {
-        If (-not $user_obj -or -not $user_obj.GetType) {
+        If (-not $user_obj) {
             $user_obj = $adsi.Create("User", $username)
             If ($password -ne $null) {
                 $user_obj.SetPassword($password)
@@ -189,7 +189,7 @@ If ($state -eq 'present') {
                 ForEach ($grp in $current_groups) {
                     If ((($groups_action -eq "remove") -and ($groups -contains $grp)) -or (($groups_action -eq "replace") -and ($groups -notcontains $grp))) {
                         $group_obj = $adsi.Children | where { $_.SchemaClassName -eq 'Group' -and $_.Name -eq $grp }
-                        If ($group_obj -and $group_obj.GetType) {
+                        If ($group_obj) {
                             $group_obj.Remove($user_obj.Path)
                             $result.changed = $true
                         }
@@ -203,7 +203,7 @@ If ($state -eq 'present') {
                 ForEach ($grp in $groups) {
                     If ($current_groups -notcontains $grp) {
                         $group_obj = $adsi.Children | where { $_.SchemaClassName -eq 'Group' -and $_.Name -eq $grp }
-                        If ($group_obj.GetType) {
+                        If ($group_obj) {
                             $group_obj.Add($user_obj.Path)
                             $result.changed = $true
                         }
@@ -222,7 +222,7 @@ If ($state -eq 'present') {
 ElseIf ($state -eq 'absent') {
     # Remove user
     try {
-        If ($user_obj -and $user_obj.GetType) {
+        If ($user_obj) {
             $username = $user_obj.Name.Value
             $adsi.delete("User", $user_obj.Name.Value)
             $result.changed = $true
@@ -235,7 +235,7 @@ ElseIf ($state -eq 'absent') {
 }
 
 try {
-    If ($user_obj -and $user_obj.GetType) {
+    If ($user_obj -and $user_obj -is [System.DirectoryServices.DirectoryEntry]) {
         $user_obj.RefreshCache()
         Set-Attr $result "name" $user_obj.Name[0]
         Set-Attr $result "fullname" $user_obj.FullName[0]

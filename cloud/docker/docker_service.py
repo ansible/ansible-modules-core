@@ -145,6 +145,14 @@ options:
       required: false
       type: bool
       default: false
+
+extends_documentation_fragment:
+    - docker
+
+requirements:
+    - "python >= 2.6"
+    - "docker-compose >= 1.7.0"
+    - "Docker API >= 1.20"
 '''
 
 EXAMPLES = '''

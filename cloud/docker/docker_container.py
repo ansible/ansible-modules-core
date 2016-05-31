@@ -98,7 +98,7 @@ options:
     default: null
     required: false
   env_file:
-    version_added: "2.2"
+    version_added: "2.1.0"
     description:
       - Path to a file containing environment variables I(FOO=BAR).
       - If variable also present in C(env), then C(env) value will override.
@@ -263,7 +263,7 @@ options:
        - To remove a container from one or more networks, use the C(purge_networks) option.
      default: null
      required: false
-     version_added: "2.2"
+     version_added: "2.1.0"
   oom_killer:
     description:
       - Whether or not to disable OOM Killer for the container.
@@ -307,7 +307,7 @@ options:
        - Any default networks such as I(bridge), if not found in C(networks), will be removed as well.
     default: false
     required: false
-    version_added: "2.2"
+    version_added: "2.1.0"
   read_only:
     description:
       - Mount the container's root file system as read-only.

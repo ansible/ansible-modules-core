@@ -127,7 +127,7 @@ options:
       - exposed
   force_kill:
     description:
-      - Use the kill command when stopping a running container. 
+      - Use the kill command when stopping a running container.
     default: false
     required: false
   groups:
@@ -369,7 +369,7 @@ options:
         re-create a matching container, even if it is running. Use restart to force a matching container to be stopped and
         restarted. Use force_kill to kill a container rather than stopping it. Use keep_volumes to retain volumes associated
         with a removed container.'
-      - 'I(stopped) - Asserts that the container is first I(present), and then if the container is running moves it to a stopped 
+      - 'I(stopped) - Asserts that the container is first I(present), and then if the container is running moves it to a stopped
         state. Use force_kill to kill a container rather than stopping it.'
     required: false
     default: started
@@ -493,7 +493,7 @@ EXAMPLES = '''
     name: mycontainer
     state: present
     image: ubuntu:14.04
-    command: sleep infinity 
+    command: sleep infinity
 
 - name: Stop a contianer
   docker_container:
@@ -1145,7 +1145,6 @@ class Container(DockerBaseClass):
 
         host_config = self.container['HostConfig']
         log_config = host_config.get('LogConfig', dict())
-        restart_policy = host_config.get('RestartPolicy', dict())
         config = self.container['Config']
         network = self.container['NetworkSettings']
         host_config['Ulimits'] = self._get_expected_ulimits(host_config['Ulimits'])
@@ -1185,11 +1184,10 @@ class Container(DockerBaseClass):
             privileged=host_config.get('Privileged'),
             expected_ports=host_config.get('PortBindings'),
             read_only=host_config.get('ReadonlyRootfs'),
-            restart_policy=restart_policy.get('Name'),
-            restart_retries=restart_policy.get('MaximumRetryCount'),
+            restart_policy=host_config.get('RestartPolicy'),
             # Cannot test shm_size, as shm_size is not included in container inspection results.
             # shm_size=host_config.get('ShmSize'),
-            security_opts=host_config.get("SecuriytOpt"),
+            security_opts=host_config.get("SecurityOpt"),
             stop_signal=config.get("StopSignal"),
             tty=config.get('Tty'),
             expected_ulimits=host_config.get('Ulimits'),

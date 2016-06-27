@@ -1301,9 +1301,12 @@ class DockerManager(object):
                 expected_labels[name] = str(value)
 
             actual_labels = {}
-            for container_label in container['Config']['Labels'] or []:
-                name, value = container_label.split('=', 1)
-                actual_labels[name] = value
+            if isinstance(container['Config']['Labels'], dict):
+                actual_labels = container['Config']['Labels']
+            else:
+                for container_label in container['Config']['Labels'] or []:
+                    name, value = container_label.split('=', 1)
+                    actual_labels[name] = value
 
             if actual_labels != expected_labels:
                 self.reload_reasons.append('labels {0} => {1}'.format(actual_labels, expected_labels))

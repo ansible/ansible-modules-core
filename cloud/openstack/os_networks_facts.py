@@ -33,7 +33,7 @@ requirements:
     - "python >= 2.6"
     - "shade"
 options:
-   network:
+   name:
      description:
         - Name or ID of the Network
      required: false

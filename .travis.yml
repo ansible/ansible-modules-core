@@ -10,7 +10,7 @@ addons:
       - python2.4
       - python2.6
 install:
-  - pip install git+https://github.com/ansible/ansible.git@devel#egg=ansible
+  - pip install git+https://github.com/ansible/ansible.git@stable-2.1#egg=ansible
   - pip install git+https://github.com/sivel/ansible-testing.git#egg=ansible_testing
 script:
   - python2.4 -m compileall -fq -x 'cloud/' .

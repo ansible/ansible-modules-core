@@ -699,7 +699,7 @@ def main():
     file_args = module.load_file_common_arguments(module.params)
     # did tar file arrive?
     if not os.path.exists(src):
-        if not remote_src and copy:
+        if copy:
             module.fail_json(msg="Source '%s' failed to transfer" % src)
         # If copy=false, and src= contains ://, try and download the file to a temp directory.
         elif '://' in src:

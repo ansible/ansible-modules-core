@@ -24,15 +24,17 @@ short_description: Manage features in NX-OS switches
 description:
     - Offers ability to enable and disable features in NX-OS
 extends_documentation_fragment: nxos
-author: Jason Edelman (@jedelman8), Gabriele Gerbino (@GGabriele)
+author:
+    - Jason Edelman (@jedelman8)
+    - Gabriele Gerbino (@GGabriele)
 options:
     feature:
         description:
-            - Name of feature
+            - Name of feature.
         required: true
     state:
         description:
-            - Desired state of the feature
+            - Desired state of the feature.
         required: false
         default: 'enabled'
         choices: ['enabled','disabled']
@@ -89,27 +91,10 @@ feature:
 def execute_config_command(commands, module):
     try:
         module.configure(commands)
-    except ShellError, clie:
+    except ShellError:
+        clie = get_exception()
         module.fail_json(msg='Error sending CLI commands',
                          error=str(clie), commands=commands)
-
-
-def get_cli_body_ssh(command, response, module):
-    """Get response for when transport=cli.  This is kind of a hack and mainly
-    needed because these modules were originally written for NX-API.  And
-    not every command supports "| json" when using cli/ssh.  As such, we assume
-    if | json returns an XML string, it is a valid command, but that the
-    resource doesn't exist yet.
-    """
-    if 'xml' in response[0]:
-        body = []
-    else:
-        try:
-            body = [json.loads(response[0])]
-        except ValueError:
-            module.fail_json(msg='Command does not support JSON output',
-                             command=command)
-    return body
 
 
 def execute_show(cmds, module, command_type=None):
@@ -118,7 +103,8 @@ def execute_show(cmds, module, command_type=None):
             response = module.execute(cmds, command_type=command_type)
         else:
             response = module.execute(cmds)
-    except ShellError, clie:
+    except ShellError:
+        clie = get_exception()
         module.fail_json(msg='Error sending {0}'.format(cmds),
                          error=str(clie))
     return response
@@ -126,10 +112,8 @@ def execute_show(cmds, module, command_type=None):
 
 def execute_show_command(command, module, command_type='cli_show'):
     if module.params['transport'] == 'cli':
-        command += ' | json'
         cmds = [command]
-        response = execute_show(cmds, module)
-        body = get_cli_body_ssh(command, response, module)
+        body = execute_show(cmds, module)
     elif module.params['transport'] == 'nxapi':
         cmds = [command]
         body = execute_show(cmds, module, command_type=command_type)
@@ -152,27 +136,32 @@ def apply_key_map(key_map, table):
 
 def get_available_features(feature, module):
     available_features = {}
+    feature_regex = '(?P<feature>\S+)\s+\d+\s+(?P<state>.*)'
     command = 'show feature'
-    body = execute_show_command(command, module)
+    body = execute_show_command(command, module, command_type='cli_show_ascii')
 
-    try:
-        body = body[0]['TABLE_cfcFeatureCtrlTable']['ROW_cfcFeatureCtrlTable']
-    except (TypeError, IndexError):
-        return available_features
+    split_body = body[0].splitlines()
 
-    for each_feature in body:
-        feature = each_feature['cfcFeatureCtrlName2']
-        state = each_feature['cfcFeatureCtrlOpStatus2']
+    for line in split_body:
+        try:
+        	match_feature = re.match(feature_regex, line, re.DOTALL)
+        	feature_group = match_feature.groupdict()
+        	feature = feature_group['feature']
+        	state = feature_group['state']
+        except AttributeError:
+        	feature = ''
+        	state = ''
 
-        if 'enabled' in state:
-            state = 'enabled'
+        if feature and state:
+        	if 'enabled' in state:
+        		state = 'enabled'
 
-        if feature not in available_features.keys():
-            available_features[feature] = state
-        else:
-            if (available_features[feature] == 'disabled' and
-                    state == 'enabled'):
-                available_features[feature] = state
+        	if feature not in available_features.keys():
+        		available_features[feature] = state
+        	else:
+        		if (available_features[feature] == 'disabled' and
+        			state == 'enabled'):
+        			available_features[feature] = state
 
     return available_features
 

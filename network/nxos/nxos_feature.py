@@ -138,8 +138,8 @@ def get_available_features(feature, module):
     available_features = {}
     feature_regex = '(?P<feature>\S+)\s+\d+\s+(?P<state>.*)'
     command = 'show feature'
-    body = execute_show_command(command, module, command_type='cli_show_ascii')
 
+    body = execute_show_command(command, module, command_type='cli_show_ascii')
     split_body = body[0].splitlines()
 
     for line in split_body:

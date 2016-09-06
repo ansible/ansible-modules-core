@@ -144,24 +144,24 @@ def get_available_features(feature, module):
 
     for line in split_body:
         try:
-        	match_feature = re.match(feature_regex, line, re.DOTALL)
-        	feature_group = match_feature.groupdict()
-        	feature = feature_group['feature']
-        	state = feature_group['state']
+            match_feature = re.match(feature_regex, line, re.DOTALL)
+            feature_group = match_feature.groupdict()
+            feature = feature_group['feature']
+            state = feature_group['state']
         except AttributeError:
-        	feature = ''
-        	state = ''
+            feature = ''
+            state = ''
 
         if feature and state:
-        	if 'enabled' in state:
-        		state = 'enabled'
+            if 'enabled' in state:
+                state = 'enabled'
 
-        	if feature not in available_features.keys():
-        		available_features[feature] = state
-        	else:
-        		if (available_features[feature] == 'disabled' and
-        			state == 'enabled'):
-        			available_features[feature] = state
+            if feature not in available_features.keys():
+                available_features[feature] = state
+            else:
+                if (available_features[feature] == 'disabled' and
+                    state == 'enabled'):
+                    available_features[feature] = state
 
     return available_features
 

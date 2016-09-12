@@ -115,7 +115,6 @@ import time
 import binascii
 import codecs
 from zipfile import ZipFile, BadZipfile
-from ansible.module_utils._text import to_text
 
 # String from tar that shows the tar contents are different from the
 # filesystem

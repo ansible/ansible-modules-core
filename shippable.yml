@@ -1,0 +1,41 @@
+language: python
+
+env:
+  matrix:
+    - TEST=none
+
+matrix:
+  exclude:
+    - env: TEST=none
+  include:
+    - env: TEST=sanity INSTALL_DEPS=1
+build:
+  pre_ci_boot:
+    options: "--privileged=false --net=bridge"
+  ci:
+    - test/utils/shippable/ci.sh
+
+integrations:
+  notifications:
+    - integrationName: email
+      type: email
+      on_success: never
+      on_failure: never
+      on_start: never
+      on_pull_request: never
+    - integrationName: irc
+      type: irc
+      recipients:
+      - "chat.freenode.net#ansible-notices"
+      on_success: change
+      on_failure: always
+      on_start: never
+      on_pull_request: always
+    - integrationName: slack
+      type: slack
+      recipients:
+      - "#shippable"
+      on_success: change
+      on_failure: always
+      on_start: never
+      on_pull_request: never

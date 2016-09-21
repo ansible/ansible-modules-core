@@ -396,6 +396,7 @@ class ZipArchive(object):
                     elif stat.S_ISREG(st.st_mode) and timestamp < st.st_mtime:
                         # Add to excluded files, ignore other changes
                         out += 'File %s is newer, excluding file\n' % path
+                        self.excludes.append(path)
                         continue
                 else:
                     if timestamp != st.st_mtime:
@@ -501,11 +502,11 @@ class ZipArchive(object):
         cmd = '%s -o "%s"' % (self.cmd_path, self.src)
         if self.opts:
             cmd += ' ' + ' '.join(self.opts)
-        if self.includes:
-            cmd += ' "' + '" "'.join(self.includes) + '"'
-        # We don't need to handle excluded files, since we simply do not include them
-#        if self.excludes:
-#            cmd += ' -x ' + ' '.join(self.excludes)
+        # NOTE: Including (changed) files as arguments is problematic (limits on command line/arguments)
+#        if self.includes:
+#            cmd += ' "' + '" "'.join(self.includes) + '"'
+        if self.excludes:
+            cmd += ' -x ' + ' '.join(self.excludes)
         cmd += ' -d "%s"' % self.dest
         rc, out, err = self.module.run_command(cmd)
         return dict(cmd=cmd, rc=rc, out=out, err=err)

@@ -104,22 +104,23 @@ EXAMPLES = '''
 import ConfigParser
 import sys
 import os
+import re
 
 # ==============================================================
 # match_opt
 
 def match_opt(option, line):
   option = re.escape(option)
-  return re.match('%s *=' % option, line) \
-    or re.match('# *%s *=' % option, line) \
-    or re.match('; *%s *=' % option, line)
+  return re.match(' *%s( |\t)*=' % option, line) \
+    or re.match('# *%s( |\t)*=' % option, line) \
+    or re.match('; *%s( |\t)*=' % option, line)
 
 # ==============================================================
 # match_active_opt
 
 def match_active_opt(option, line):
   option = re.escape(option)
-  return re.match('%s *=' % option, line)
+  return re.match(' *%s( |\t)*=' % option, line)
 
 # ==============================================================
 # do_ini

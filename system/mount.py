@@ -351,6 +351,7 @@ def is_bind_mounted(module, dest, src=None, fstype=None):
         arguments = mnt.split()
 
         if get_platform().lower() == 'linux':
+            source = arguments[1]
             result = mount_pattern.search(arguments[1])
 
             # This is only for LVM and tmpfs mounts
@@ -361,6 +362,18 @@ def is_bind_mounted(module, dest, src=None, fstype=None):
                 # That's for unmounted/absent
                 if arguments[0] == dest:
                     is_mounted = True
+            else:
+                # That's for mounted
+                if arguments[0] == dest and source == src:
+                    is_mounted = True
+                elif arguments[0] == dest and src.endswith(source):
+                    # Check if it's tmpfs mount
+                    sub_path = src[:len(src)-len(source)]
+
+                    if (
+                            is_bind_mounted(module, sub_path, 'tmpfs') and
+                            source == src[len(sub_path):]):
+                        is_mounted = True
         elif (
                 (arguments[0] == src or src is None) and
                 arguments[2] == dest and

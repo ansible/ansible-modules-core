@@ -21,14 +21,6 @@
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.basic import get_platform
-from ansible.module_utils.ismount import ismount
-from ansible.module_utils.pycompat24 import get_exception
-import os
-import re
-
-
 DOCUMENTATION = '''
 ---
 module: mount
@@ -118,6 +110,14 @@ EXAMPLES = '''
     opts: noatime
     state: present
 '''
+
+import os
+import re
+
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.basic import get_exception
+from ansible.module_utils.basic import get_platform
+from ansible.module_utils.ismount import ismount
 
 
 def write_fstab(lines, dest):

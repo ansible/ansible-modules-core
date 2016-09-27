@@ -477,24 +477,11 @@ def local_nvra(module, path):
     finally:
         os.close(fd)
 
-    return '%s-%s-%s.%s' % (header[rpm.RPMTAG_NAME], 
+    return '%s-%s-%s.%s' % (header[rpm.RPMTAG_NAME],
                             header[rpm.RPMTAG_VERSION],
                             header[rpm.RPMTAG_RELEASE],
                             header[rpm.RPMTAG_ARCH])
-    
-def local_name(module, path):
-    """return package name of a local rpm passed in"""
 
-    ts = rpm.TransactionSet()
-    ts.setVSFlags(rpm._RPMVSF_NOSIGNATURES)
-    fd = os.open(path, os.O_RDONLY)
-    try:
-        header = ts.hdrFromFdno(fd)
-    finally:
-        os.close(fd)
-
-    return header[rpm.RPMTAG_NAME]
-    
 def pkg_to_dict(pkgstr):
 
     if pkgstr.strip():
@@ -569,9 +556,10 @@ def install(module, items, repoq, yum_basecmd, conf_file, en_repos, dis_repos):
                 res['msg'] += "No Package file matching '%s' found on system" % spec
                 module.fail_json(**res)
 
-            pkg_name = local_name(module, spec)
+            nvra = local_nvra(module, spec)
+
             # look for them in the rpmdb
-            if is_installed(module, repoq, pkg_name, conf_file, en_repos=en_repos, dis_repos=dis_repos):
+            if is_installed(module, repoq, nvra, conf_file, en_repos=en_repos, dis_repos=dis_repos):
                 # if they are there, skip it
                 continue
             pkg = spec
@@ -592,8 +580,8 @@ def install(module, items, repoq, yum_basecmd, conf_file, en_repos, dis_repos):
                 shutil.rmtree(tempdir)
                 module.fail_json(msg="Failure downloading %s, %s" % (spec, e))
 
-            pkg_name = local_name(module, package)
-            if is_installed(module, repoq, pkg_name, conf_file, en_repos=en_repos, dis_repos=dis_repos):
+            nvra = local_nvra(module, package)
+            if is_installed(module, repoq, nvra, conf_file, en_repos=en_repos, dis_repos=dis_repos):
                 # if it's there, skip it
                 continue
             pkg = package

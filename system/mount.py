@@ -353,12 +353,7 @@ def is_bind_mounted(module, dest, src=None, fstype=None):
         if get_platform().lower() == 'linux':
             result = mount_pattern.search(arguments[1])
 
-            # This is only for LVM and tmpfs mounts
-            if result is not None and len(result.groups()) == 1:
-                source = result.group(1)
-
-            if src is None:
-                # That's for unmounted/absent
+            if len(result.groups()) == 1:
                 if arguments[0] == dest:
                     is_mounted = True
         elif (
@@ -398,10 +393,6 @@ def main():
     args = {
         'name': module.params['name']
     }
-
-    # FreeBSD doesn't have any 'default' so set 'rw' instead
-    if get_platform() == 'FreeBSD':
-        args['opts'] = 'rw'
 
     if module.params['src'] is not None:
         args['src'] = module.params['src']

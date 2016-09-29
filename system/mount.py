@@ -25,6 +25,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.basic import get_platform
 from ansible.module_utils.ismount import ismount
 from ansible.module_utils.pycompat24 import get_exception
+from ansible.module_utils.six import iteritems
 import os
 import re
 
@@ -165,7 +166,7 @@ def set_mount(module, **kwargs):
     to_write = []
     exists = False
     changed = False
-    escaped_args = dict([(k, _escape_fstab(v)) for k, v in args.items()])
+    escaped_args = dict([(k, _escape_fstab(v)) for k, v in args.iteritems()])
     for line in open(args['fstab'], 'r').readlines():
         if not line.strip():
             to_write.append(line)

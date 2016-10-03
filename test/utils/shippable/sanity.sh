@@ -13,7 +13,7 @@ if [ "${install_deps}" != "" ]; then
     apt-get update -qq
     apt-get install shellcheck
 
-    pip install git+https://github.com/ansible/ansible.git@devel#egg=ansible
+    pip install git+https://github.com/ansible/ansible.git@stable-2.2#egg=ansible
     pip install git+https://github.com/sivel/ansible-testing.git#egg=ansible_testing
 fi
 

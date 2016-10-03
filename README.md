@@ -1,4 +1,4 @@
-[![Build Status](https://api.shippable.com/projects/573f79d02a8192902e20e34e/badge?branch=devel)](https://app.shippable.com/projects/573f79d02a8192902e20e34e)
+[![Build Status](https://api.shippable.com/projects/573f79d02a8192902e20e34e/badge?branch=stable-2.2)](https://app.shippable.com/projects/573f79d02a8192902e20e34e)
 
 ansible-modules-core
 ====================

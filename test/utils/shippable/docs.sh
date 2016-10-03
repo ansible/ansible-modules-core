@@ -30,6 +30,7 @@ cd /
 mv "${build_dir}" "${modules_tmp_dir}"
 git clone "${ansible_repo_url}" "${build_dir}"
 cd "${build_dir}"
+git checkout stable-2.2
 rmdir "${this_modules_dir}"
 mv "${modules_tmp_dir}" "${this_modules_dir}"
 mv "${this_modules_dir}/shippable" "${build_dir}"

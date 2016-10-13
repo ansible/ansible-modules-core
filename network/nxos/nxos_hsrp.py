@@ -406,7 +406,7 @@ def get_interface_mode(interface, intf_type, module):
     return mode
 
 
-def get_hsrp_groups_on_interfaces(device):
+def get_hsrp_groups_on_interfaces(device, module):
     command = 'show hsrp all'
     body = execute_show_command(command, module)
     hsrp = {}

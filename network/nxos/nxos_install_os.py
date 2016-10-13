@@ -400,6 +400,7 @@ def main():
         set_boot_options(module,
                          system_image_file,
                          kickstart=kickstart_image_file)
+        install_state = get_boot_options(module)
 
         if not already_set(install_state,
                            system_image_file,

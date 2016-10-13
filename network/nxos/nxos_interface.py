@@ -308,7 +308,7 @@ def is_default_interface(interface, module):
         body = execute_show_command(command, module,
                                     command_type='cli_show_ascii')[0]
     except IndexError:
-        body = []
+        body = ''
 
     if body:
         raw_list = body.split('\n')

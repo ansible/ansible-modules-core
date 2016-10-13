@@ -154,8 +154,6 @@ class CustomNetworkConfig(NetworkConfig):
     def get_section(self, path):
         try:
             section = self.get_section_objects(path)
-            if self._device_os == 'junos':
-                return self.to_lines(section)
             return self.to_block(section)
         except ValueError:
             return list()
@@ -398,10 +396,10 @@ def network_from_string(address, mask, module):
 def normalize_prefix(module, prefix):
     splitted_prefix = prefix.split('/')
 
+    address = splitted_prefix[0]
     if len(splitted_prefix) > 2:
         module.fail_json(msg='Incorrect address format.', address=address)
     elif len(splitted_prefix) == 2:
-        address = splitted_prefix[0]
         mask = splitted_prefix[1]
         network = network_from_string(address, mask, module)
 

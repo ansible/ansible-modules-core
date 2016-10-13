@@ -507,7 +507,7 @@ def main():
             if existing.get('vni') and existing.get('vni') != '':
                 commands.insert(1, 'no vni {0}'.format(existing['vni']))
         if module.check_mode:
-            module.exit_json(changed=True, commands=cmds)
+            module.exit_json(changed=True, commands=commands)
         else:
             execute_config_command(commands, module)
             changed = True

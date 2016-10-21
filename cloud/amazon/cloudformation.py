@@ -80,8 +80,8 @@ options:
     version_added: "2.0"
   template_format:
     description:
-    - For local templates, allows specification of json or yaml format
-    default: json
+    - (deprecated) For local templates, allows specification of json or yaml format. Templates are now passed raw to CloudFormation regardless of format. This parameter is ignored since Ansible 2.2.
+    default: None
     choices: [ json, yaml ]
     required: false
     version_added: "2.0"
@@ -147,7 +147,6 @@ EXAMPLES = '''
 
 import json
 import time
-import yaml
 
 try:
     import boto
@@ -246,7 +245,7 @@ def main():
             stack_policy=dict(default=None, required=False),
             disable_rollback=dict(default=False, type='bool'),
             template_url=dict(default=None, required=False),
-            template_format=dict(default='json', choices=['json', 'yaml'], required=False),
+            template_format=dict(default=None, choices=['json', 'yaml'], required=False),
             tags=dict(default=None, type='dict')
         )
     )
@@ -269,12 +268,6 @@ def main():
         template_body = open(module.params['template'], 'r').read()
     else:
         template_body = None
-
-    if module.params['template_format'] == 'yaml':
-        if template_body is None:
-            module.fail_json(msg='yaml format only supported for local templates')
-        else:
-            template_body = json.dumps(yaml.load(template_body), indent=2)
 
     notification_arns = module.params['notification_arns']
 
@@ -391,6 +384,11 @@ def main():
         if operation == 'DELETE':
             cfn.delete_stack(stack_name)
             result = stack_operation(cfn, stack_name, operation)
+
+    if module.params['template_format'] is not None:
+        result['warnings'] = [('Argument `template_format` is deprecated '
+            'since Ansible 2.2, JSON and YAML templates are now passed '
+            'directly to the CloudFormation API.')]
 
     module.exit_json(**result)
 

@@ -51,7 +51,7 @@ options:
             - UDP port number (0-65535).
         required: false
         default: null
-    type:
+    snmp_type:
         description:
             - type of message to send to host.
         required: false

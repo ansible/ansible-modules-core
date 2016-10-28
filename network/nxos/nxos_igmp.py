@@ -69,17 +69,6 @@ EXAMPLES = '''
 - nxos_igmp: restart=true host={{ inventory_hostname }}
 '''
 
-EXAMPLES = '''
-# configure a simple asn
-- nxos_bgp:
-      asn=65535
-      vrf=test
-      router_id=1.1.1.1
-      state=present
-      username: "{{ un }}"
-      password: "{{ pwd }}"
-      host: "{{ inventory_hostname }}"
-'''
 
 RETURN = '''
 proposed:

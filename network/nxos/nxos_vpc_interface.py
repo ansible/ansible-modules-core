@@ -57,7 +57,7 @@ options:
 '''
 
 EXAMPLES = '''
-- nxos_vpc_portchannel:
+- nxos_vpc_interface:
     portchannel: 10
     vpc: 100
     username: "{{ un }}"

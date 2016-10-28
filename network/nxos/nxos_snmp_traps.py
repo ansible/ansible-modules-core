@@ -19,7 +19,7 @@
 
 DOCUMENTATION = '''
 ---
-module: nxos_snmp_trap
+module: nxos_snmp_traps
 version_added: "2.2"
 short_description: Manages SNMP traps.
 description:

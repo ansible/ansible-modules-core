@@ -19,7 +19,7 @@
 DOCUMENTATION = '''
 ---
 
-module: nxos_vtp
+module: nxos_vtp_password
 version_added: "2.2"
 short_description: Manages VTP password configuration.
 description:

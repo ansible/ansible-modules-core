@@ -109,7 +109,7 @@ from ansible.module_utils.shell import ShellError
 try:
     from ansible.module_utils.nxos import get_module
 except ImportError:
-    from ansible.module_utils.nxos import NetworkModule
+    from ansible.module_utils.nxos import NetworkModule, NetworkError
 
 
 def to_list(val):
@@ -300,7 +300,7 @@ def execute_show(cmds, module, command_type=None):
             else:
                 module.cli.add_commands(cmds, output=command_type)
                 response = module.cli.run_commands()
-        except ShellError:
+        except NetworkError:
             clie = get_exception()
             module.fail_json(msg='Error sending {0}'.format(cmds),
                              error=str(clie))
@@ -451,10 +451,8 @@ def execute_config_command(commands, module):
                          error=str(clie), commands=commands)
     except AttributeError:
         try:
-            commands.insert(0, 'configure')
-            module.cli.add_commands(commands, output='config')
-            module.cli.run_commands()
-        except ShellError:
+            module.config.load_config(commands)
+        except NetworkError:
             clie = get_exception()
             module.fail_json(msg='Error sending CLI commands',
                              error=str(clie), commands=commands)
@@ -507,22 +505,17 @@ def main():
             if command:
                 commands.append(command)
 
-    if commands:
-        cmds = flatten_list(commands)
-        if cmds:
-            if module.check_mode:
-                module.exit_json(changed=True, commands=cmds)
-            else:
-                execute_config_command(cmds, module)
-                changed = True
-                end_state_acls = get_acl_interface(module, name)
-                interfaces_acls, this_dir_acl_intf = other_existing_acl(
+    cmds = flatten_list(commands)
+    if cmds:
+        if module.check_mode:
+            module.exit_json(changed=True, commands=cmds)
+        else:
+            execute_config_command(cmds, module)
+            changed = True
+            end_state_acls = get_acl_interface(module, name)
+            interfaces_acls, this_dir_acl_intf = other_existing_acl(
                     end_state_acls, interface, direction)
-                end_state = this_dir_acl_intf
-                if 'configure' in cmds:
-                    cmds.pop(0)
-    else:
-        cmds = []
+            end_state = this_dir_acl_intf
 
     results = {}
     results['proposed'] = proposed

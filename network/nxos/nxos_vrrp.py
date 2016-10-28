@@ -126,7 +126,7 @@ from ansible.module_utils.shell import ShellError
 try:
     from ansible.module_utils.nxos import get_module
 except ImportError:
-    from ansible.module_utils.nxos import NetworkModule
+    from ansible.module_utils.nxos import NetworkModule, NetworkError
 
 
 def to_list(val):
@@ -279,10 +279,8 @@ def execute_config_command(commands, module):
                          error=str(clie), commands=commands)
     except AttributeError:
         try:
-            commands.insert(0, 'configure')
-            module.cli.add_commands(commands, output='config')
-            module.cli.run_commands()
-        except ShellError:
+            module.config.load_config(commands)
+        except NetworkError:
             clie = get_exception()
             module.fail_json(msg='Error sending CLI commands',
                              error=str(clie), commands=commands)
@@ -334,7 +332,7 @@ def execute_show(cmds, module, command_type=None):
             else:
                 module.cli.add_commands(cmds, raw=True)
                 response = module.cli.run_commands()
-        except ShellError:
+        except NetworkError:
             clie = get_exception()
             module.fail_json(msg='Error sending {0}'.format(cmds),
                              error=str(clie))
@@ -628,8 +626,6 @@ def main():
             execute_config_command(cmds, module)
             changed = True
             end_state = get_existing_vrrp(interface, group, module, name)
-            if 'configure' in cmds:
-                cmds.pop(0)
 
     results = {}
     results['proposed'] = proposed

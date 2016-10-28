@@ -147,7 +147,7 @@ from ansible.module_utils.shell import ShellError
 try:
     from ansible.module_utils.nxos import get_module
 except ImportError:
-    from ansible.module_utils.nxos import NetworkModule
+    from ansible.module_utils.nxos import NetworkModule, NetworkError
 
 
 def to_list(val):
@@ -696,10 +696,8 @@ def execute_config_command(commands, module):
                          error=str(clie), commands=commands)
     except AttributeError:
         try:
-            commands.insert(0, 'configure')
-            module.cli.add_commands(commands, output='config')
-            module.cli.run_commands()
-        except ShellError:
+            module.config.load_config(commands)
+        except NetworkError:
             clie = get_exception()
             module.fail_json(msg='Error sending CLI commands',
                              error=str(clie), commands=commands)
@@ -712,7 +710,7 @@ def get_cli_body_ssh(command, response, module):
     if | json returns an XML string, it is a valid command, but that the
     resource doesn't exist yet.
     """
-    if 'xml' in response[0]:
+    if 'xml' in response[0] or response[0] == '\n':
         body = []
     elif 'show run' in command:
         body = response
@@ -749,7 +747,7 @@ def execute_show(cmds, module, command_type=None):
             else:
                 module.cli.add_commands(cmds, raw=True)
                 response = module.cli.run_commands()
-        except ShellError:
+        except NetworkError:
             clie = get_exception()
             module.fail_json(msg='Error sending {0}'.format(cmds),
                              error=str(clie))
@@ -931,7 +929,6 @@ def main():
                                                        normalized_interface)
             else:
                 end_state = get_interfaces_dict(module)[interface_type]
-            cmds = [cmd for cmd in cmds if cmd != 'configure']
 
     results = {}
     results['proposed'] = proposed

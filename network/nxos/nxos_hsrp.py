@@ -131,7 +131,7 @@ from ansible.module_utils.shell import ShellError
 try:
     from ansible.module_utils.nxos import get_module
 except ImportError:
-    from ansible.module_utils.nxos import NetworkModule
+    from ansible.module_utils.nxos import NetworkModule, NetworkError
 
 
 def to_list(val):
@@ -284,10 +284,8 @@ def execute_config_command(commands, module):
                          error=str(clie), commands=commands)
     except AttributeError:
         try:
-            commands.insert(0, 'configure')
-            module.cli.add_commands(commands, output='config')
-            output = module.cli.run_commands()
-        except ShellError:
+            output = module.config.load_config(commands)
+        except NetworkError:
             clie = get_exception()
             module.fail_json(msg='Error sending CLI commands',
                              error=str(clie), commands=commands)
@@ -302,7 +300,7 @@ def get_cli_body_ssh(command, response, module):
     resource doesn't exist yet. Instead, the output will be a raw string
     when issuing commands containing 'show run'.
     """
-    if 'xml' in response[0]:
+    if 'xml' in response[0] or response[0] == '\n':
         body = []
     elif 'show run' in command:
         body = response
@@ -340,7 +338,7 @@ def execute_show(cmds, module, command_type=None):
             else:
                 module.cli.add_commands(cmds, raw=True)
                 response = module.cli.run_commands()
-        except ShellError:
+        except NetworkError:
             clie = get_exception()
             module.fail_json(msg='Error sending {0}'.format(cmds),
                              error=str(clie))
@@ -349,7 +347,8 @@ def execute_show(cmds, module, command_type=None):
 
 def execute_show_command(command, module, command_type='cli_show'):
     if module.params['transport'] == 'cli':
-        command += ' | json'
+        if 'show run' not in command:
+            command += ' | json'
         cmds = [command]
         response = execute_show(cmds, module)
         body = get_cli_body_ssh(command, response, module)
@@ -539,6 +538,7 @@ def is_default(interface, module):
 
     try:
         body = execute_show_command(command, module)[0]
+
         if 'invalid' in body.lower():
             return 'DNE'
         else:
@@ -547,15 +547,16 @@ def is_default(interface, module):
                 return True
             else:
                 return False
-    except (KeyError):
+    except (KeyError, IndexError):
         return 'DNE'
 
 
 def validate_config(body, vip, module):
-    new_body = ''.join(body)
-    if "invalid ip address" in new_body.lower():
-            module.fail_json(msg="Invalid VIP. Possible duplicate IP address.",
-                             vip=vip)
+    if body:
+        new_body = ''.join(body)
+        if "invalid ip address" in new_body.lower():
+                module.fail_json(msg="Invalid VIP. Possible duplicate "
+                                     "IP address.", vip=vip)
 
 
 def validate_params(param, module):
@@ -684,8 +685,6 @@ def main():
                 validate_config(body, vip, module)
             changed = True
             end_state = get_hsrp_group(group, interface, module)
-            if 'configure' in commands:
-                commands.pop(0)
 
     results = {}
     results['proposed'] = proposed

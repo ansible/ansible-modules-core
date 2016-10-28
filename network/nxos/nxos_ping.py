@@ -118,7 +118,7 @@ from ansible.module_utils.shell import ShellError
 try:
     from ansible.module_utils.nxos import get_module
 except ImportError:
-    from ansible.module_utils.nxos import NetworkModule
+    from ansible.module_utils.nxos import NetworkModule, NetworkError
 
 
 def to_list(val):
@@ -324,9 +324,9 @@ def execute_show(cmds, module, command_type=None):
                 module.cli.add_commands(cmds, output=command_type)
                 response = module.cli.run_commands()
             else:
-                module.cli.add_commands(cmds, output=command_type)
+                module.cli.add_commands(cmds, raw=True)
                 response = module.cli.run_commands()
-        except ShellError:
+        except NetworkError:
             clie = get_exception()
             module.fail_json(msg='Error sending {0}'.format(cmds),
                              error=str(clie))

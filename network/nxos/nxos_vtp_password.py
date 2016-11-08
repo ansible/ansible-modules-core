@@ -280,7 +280,7 @@ def get_cli_body_ssh(command, response, module):
     """
     if 'xml' in response[0] or response[0] == '\n':
         body = []
-    elif 'show run' in command:
+    elif 'show run' in command or 'status' in command:
         body = response
     else:
         try:
@@ -324,7 +324,7 @@ def execute_show(cmds, module, command_type=None):
 
 def execute_show_command(command, module, command_type='cli_show'):
     if module.params['transport'] == 'cli':
-        if 'show run' not in command:
+        if 'show run' not in command and 'status' not in command:
             command += ' | json'
         cmds = [command]
         response = execute_show(cmds, module)
@@ -369,7 +369,6 @@ def get_vtp_config(module):
     if body:
         version_regex = '.*VTP version running\s+:\s+(?P<version>\d).*'
         domain_regex = '.*VTP Domain Name\s+:\s+(?P<domain>\S+).*'
-
         try:
             match_version = re.match(version_regex, body, re.DOTALL)
             version = match_version.groupdict()['version']

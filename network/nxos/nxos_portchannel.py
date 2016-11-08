@@ -331,7 +331,7 @@ def execute_config_command(commands, module):
                          error=str(clie), commands=commands)
     except AttributeError:
         try:
-            module.config.load_config(commands)
+            output = module.config.load_config(commands)
         except NetworkError:
             clie = get_exception()
             module.fail_json(msg='Error sending CLI commands',

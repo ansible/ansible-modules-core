@@ -375,7 +375,7 @@ def main():
 
         # Finally, remove anything left in the groupRules -- these will be defunct rules
         if purge_rules:
-            for (rule, grant) in groupRules.itervalues() :
+            for (rule, grant) in groupRules.values():
                 grantGroup = None
                 if grant.group_id:
                     if grant.owner_id != group.owner_id:
@@ -452,7 +452,7 @@ def main():
 
         # Finally, remove anything left in the groupRules -- these will be defunct rules
         if purge_rules_egress:
-            for (rule, grant) in groupRules.itervalues():
+            for (rule, grant) in groupRules.values():
                 grantGroup = None
                 if grant.group_id:
                     grantGroup = groups[grant.group_id].id

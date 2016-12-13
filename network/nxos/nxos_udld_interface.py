@@ -471,7 +471,7 @@ def main():
     existing = get_udld_interface(module, interface)
     end_state = existing
 
-    delta = dict(set(proposed.iteritems()).difference(existing.iteritems()))
+    delta = dict(set(proposed.items()).difference(existing.items()))
 
     changed = False
     commands = []
@@ -481,7 +481,7 @@ def main():
                                                          module, existing)
             commands.append(command)
     elif state == 'absent':
-        common = set(proposed.iteritems()).intersection(existing.iteritems())
+        common = set(proposed.items()).intersection(existing.items())
         if common:
             command = get_commands_remove_udld_interface(
                 dict(common), interface, module, existing

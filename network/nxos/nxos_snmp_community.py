@@ -304,7 +304,7 @@ def get_existing(module):
     if existing.get('group') or existing.get('acl'):
         existing['community'] = module.params['community']
     existing = dict((key, value) for key, value in
-                    existing.iteritems() if value)
+                    existing.items() if value)
     return existing
 
 
@@ -363,7 +363,7 @@ def main():
             group = 'network-admin'
 
     args = ['community', 'acl']
-    proposed = dict((k, v) for k, v in module.params.iteritems()
+    proposed = dict((k, v) for k, v in module.params.items()
                     if v is not None and k in args)
     proposed['group'] = group
     existing = get_existing(module)

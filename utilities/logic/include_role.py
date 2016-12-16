@@ -37,11 +37,6 @@ options:
       - "File to load from a Role's defaults/ directory."
     required: False
     default: 'main'
-  static:
-    description:
-      - Gives Ansible a hint if this is a 'static' include or not. If static it implies that it won't need templating nor loops nor conditionals and will show included tasks in the --list options.
-    required: False
-    default: None
   allow_duplicates:
     description:
       - Overrides the role's metadata setting to allow using a role more than once with the same parameters.
@@ -55,7 +50,7 @@ notes:
     - THIS IS EARLY PREVIEW, THINGS MAY CHANGE
     - Handlers are made available to the whole play.
     - simple dependencies seem to work fine.
-    - "Things not tested (yet): plugin overrides, nesting includes, used as handler, other stuff I did not think of when I wrote this."
+    - As with C(include) this task can be static or dynamic, If static it implies that it won't need templating nor loops nor conditionals and will show included tasks in the --list options. Ansible will try to autodetect what is needed, but you can set `static: yes|no` at task level to control this.
 '''
 
 EXAMPLES = """

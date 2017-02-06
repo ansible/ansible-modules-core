@@ -82,7 +82,7 @@ EXAMPLES = '''
 
 import csv
 import json
-import ansible.module_utils.six.moves.urllib.parse as urlparse
+import urlparse
 
 SUPPORTED_DISTROS = ['ubuntu']
 

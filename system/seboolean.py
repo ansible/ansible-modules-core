@@ -44,7 +44,7 @@ options:
     choices: [ 'yes', 'no' ]
 notes:
    - Not tested on any debian based system
-requirements: [ ]
+requirements: [ libselinux-python, libsemanage-python ]
 author: "Stephen Fromm (@sfromm)"
 '''
 

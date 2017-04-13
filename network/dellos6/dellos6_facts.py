@@ -1,5 +1,6 @@
 #!/usr/bin/python
 #
+#
 # (c) 2015 Peter Sprygada, <psprygada@ansible.com>
 #
 # Copyright (c) 2016 Dell Inc.
@@ -122,6 +123,7 @@ from ansible.module_utils.netcli import CommandRunner
 from ansible.module_utils.network import NetworkModule
 import ansible.module_utils.dellos6
 
+
 class FactsBase(object):
 
     def __init__(self, runner):
@@ -129,6 +131,7 @@ class FactsBase(object):
         self.facts = dict()
 
         self.commands()
+
 
 class Default(FactsBase):
 
@@ -142,7 +145,7 @@ class Default(FactsBase):
         self.facts['serialnum'] = self.parse_serialnum(data)
         self.facts['model'] = self.parse_model(data)
         self.facts['image'] = self.parse_image(data)
-        hdata =self.runner.get_command('show running-config | include hostname')
+        hdata = self.runner.get_command('show running-config | include hostname')
         self.facts['hostname'] = self.parse_hostname(hdata)
 
     def parse_version(self, data):
@@ -211,14 +214,14 @@ class Interfaces(FactsBase):
         properties = self.runner.get_command('show interfaces transceiver properties')
         vlan = self.runner.get_command('show ip int')
         vlan_info = self.parse_vlan(vlan)
-        self.facts['interfaces'] = self.populate_interfaces(interfaces,desc,properties)
+        self.facts['interfaces'] = self.populate_interfaces(interfaces, desc, properties)
         self.facts['interfaces'].update(vlan_info)
         if 'LLDP is not enabled' not in self.runner.get_command('show lldp'):
             neighbors = self.runner.get_command('show lldp remote-device all')
             self.facts['neighbors'] = self.parse_neighbors(neighbors)
 
-    def parse_vlan(self,vlan):
-        facts =dict()
+    def parse_vlan(self, vlan):
+        facts = dict()
         vlan_info, vlan_info_next = vlan.split('----------   -----   --------------- --------------- -------')
         for en in vlan_info_next.splitlines():
             if en == '':
@@ -228,25 +231,25 @@ class Interfaces(FactsBase):
             if intf not in facts:
                 facts[intf] = list()
             fact = dict()
-            matc=re.search('^([\w+\s\d]*)\s+(\S+)\s+(\S+)',en)
+            matc = re.search('^([\w+\s\d]*)\s+(\S+)\s+(\S+)', en)
             fact['address'] = matc.group(2)
             fact['masklen'] = matc.group(3)
             facts[intf].append(fact)
-        return facts                                         
+        return facts
 
     def populate_interfaces(self, interfaces, desc, properties):
         facts = dict()
         for key, value in interfaces.items():
             intf = dict()
-            intf['description'] = self.parse_description(key,desc)
+            intf['description'] = self.parse_description(key, desc)
             intf['macaddress'] = self.parse_macaddress(value)
             intf['mtu'] = self.parse_mtu(value)
             intf['bandwidth'] = self.parse_bandwidth(value)
-            intf['mediatype'] = self.parse_mediatype(key,properties)
+            intf['mediatype'] = self.parse_mediatype(key, properties)
             intf['duplex'] = self.parse_duplex(value)
             intf['lineprotocol'] = self.parse_lineprotocol(value)
             intf['operstatus'] = self.parse_operstatus(value)
-            intf['type'] = self.parse_type(key,properties)
+            intf['type'] = self.parse_type(key, properties)
             facts[key] = intf
         return facts
 
@@ -260,8 +263,11 @@ class Interfaces(FactsBase):
             if intf not in facts:
                 facts[intf] = list()
             fact = dict()
-            fact['host'] = self.parse_lldp_host(en.split()[4])
             fact['port'] = self.parse_lldp_port(en.split()[3])
+            if (len(en.split()) > 4):
+                fact['host'] = self.parse_lldp_host(en.split()[4])
+            else:
+                fact['host'] = "Null"
             facts[intf].append(fact)
 
         return facts
@@ -282,11 +288,14 @@ class Interfaces(FactsBase):
 
     def parse_description(self, key, desc):
         desc, desc_next = desc.split('--------- --------------- ------ ------- ---- ------ ----- -- -------------------')
-        desc_val, desc_info = desc_next.split('Oob')
+        if desc_next.find('Oob') > 0:
+            desc_val, desc_info = desc_next.split('Oob')
+        elif desc_next.find('Port') > 0:
+            desc_val, desc_info = desc_next.split('Port')
         for en in desc_val.splitlines():
             if key in en:
                 match = re.search('^(\S+)\s+(\S+)', en)
-                if match.group(2) in ['Full','N/A']:
+                if match.group(2) in ['Full', 'N/A']:
                     return "Null"
                 else:
                     return match.group(2)
@@ -302,9 +311,9 @@ class Interfaces(FactsBase):
             return int(match.group(2))
 
     def parse_bandwidth(self, data):
-        match = re.search(r'Port Speed(.+)\s(\d+)\n', data)
+        match = re.search(r'Port Speed\s*[:\s\.]+\s(\d+)\n', data)
         if match:
-            return int(match.group(2))
+            return int(match.group(1))
 
     def parse_duplex(self, data):
         match = re.search(r'Port Mode\s([A-Za-z]*)(.+)\s([A-Za-z/]*)\n', data)
@@ -313,40 +322,43 @@ class Interfaces(FactsBase):
 
     def parse_mediatype(self, key, properties):
         mediatype, mediatype_next = properties.split('--------- ------- --------------------- --------------------- --------------')
-        flag=1
+        flag = 1
         for en in mediatype_next.splitlines():
             if key in en:
-                flag=0
-                match = re.search('^(\S+)\s+(\S+)\s+(\S+)',en)
+                flag = 0
+                match = re.search('^(\S+)\s+(\S+)\s+(\S+)', en)
                 if match:
                     strval = match.group(3)
                     return match.group(3)
-        if flag==1:
+        if flag == 1:
             return "null"
-          
+
     def parse_type(self, key, properties):
         type_val, type_val_next = properties.split('--------- ------- --------------------- --------------------- --------------')
-        flag=1
+        flag = 1
         for en in type_val_next.splitlines():
             if key in en:
-                flag=0
-                match = re.search('^(\S+)\s+(\S+)\s+(\S+)',en)
+                flag = 0
+                match = re.search('^(\S+)\s+(\S+)\s+(\S+)', en)
                 if match:
                     strval = match.group(2)
                     return match.group(2)
-        if flag==1:
+        if flag == 1:
             return "null"
 
     def parse_lineprotocol(self, data):
-        match = re.search(r'Link Status.*\s(\S+)\s+(\S+)\n', data)
-        if match:
-            strval= match.group(2)
-            return strval.strip('/')
+        data = data.splitlines()
+        for d in data:
+            match = re.search(r'^Link Status\s*[:\s\.]+\s(\S+)', d)
+            if match:
+                return match.group(1)
 
     def parse_operstatus(self, data):
-        match = re.search(r'Link Status.*\s(\S+)\s+(\S+)\n', data)
-        if match:
-            return match.group(1)
+        data = data.splitlines()
+        for d in data:
+            match = re.search(r'^Link Status\s*[:\s\.]+\s(\S+)', d)
+            if match:
+                return match.group(1)
 
     def parse_lldp_intf(self, data):
         match = re.search(r'^([A-Za-z0-9/]*)', data)
@@ -354,7 +366,7 @@ class Interfaces(FactsBase):
             return match.group(1)
 
     def parse_lldp_host(self, data):
-        match = re.search(r'^([A-Za-z0-9]*)', data)
+        match = re.search(r'^([A-Za-z0-9-]*)', data)
         if match:
             return match.group(1)
 
@@ -373,7 +385,9 @@ FACT_SUBSETS = dict(
 
 VALID_SUBSETS = frozenset(FACT_SUBSETS.keys())
 
+
 def main():
+
     spec = dict(
         gather_subset=dict(default=['!config'], type='list')
     )
@@ -427,15 +441,12 @@ def main():
             facts.update(inst.facts)
     except Exception:
         module.exit_json(out=module.from_json(runner.items))
-
     ansible_facts = dict()
     for key, value in facts.items():
         key = 'ansible_net_%s' % key
         ansible_facts[key] = value
-
     module.exit_json(ansible_facts=ansible_facts)
 
 
 if __name__ == '__main__':
     main()
-

@@ -290,21 +290,23 @@ class Interfaces(FactsBase):
 
         for interface in interfaces.findall('./data/ports/ports-state/port'):
             name = self.parse_item(interface, 'name')
-            fanout = self.parse_item(interface, 'fanout-state')
-            mediatype = self.parse_item(interface, 'media-type')  
+            # media-type name interface name format phy-eth 1/1/1
+            mediatype = self.parse_item(interface, 'media-type')
 
             typ, sname = name.split('-eth')
-
-            if fanout == "BREAKOUT_1x1":
-                name = "ethernet" + sname
+            name = "ethernet" + sname
+            try:
                 intf = int_facts[name]
-                intf['mediatype'] = mediatype  
-            else:
-                #TODO: Loop for the exact subport
+                intf['mediatype'] = mediatype
+            except:
+                # fanout
                 for subport in xrange(1, 5):
                     name = "ethernet" + sname + ":" + str(subport)
-                    intf = int_facts[name]
-                    intf['mediatype'] = mediatype  
+                    try:
+                        intf = int_facts[name]
+                        intf['mediatype'] = mediatype
+                    except:
+                        pass
 
         return int_facts
 

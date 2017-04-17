@@ -73,8 +73,8 @@ notes:
   - This module requires Dell OS9 version 9.10.0.1P13 or above.
 
   - This module requires to increase the ssh connection rate limit.
-    Use the following command I(ip ssh connection-rate-limit 60) 
-    to configure the same. This can be done via M(dnos_config) module 
+    Use the following command I(ip ssh connection-rate-limit 60)
+    to configure the same. This can be done via M(dnos_config) module
     as well.
 
 """
@@ -148,7 +148,10 @@ warnings:
 from ansible.module_utils.basic import get_exception
 from ansible.module_utils.netcli import CommandRunner, FailedConditionsError
 from ansible.module_utils.network import NetworkModule, NetworkError
+from ansible.module_utils.six import string_types
 import ansible.module_utils.dellos9
+
+VALID_KEYS = ['command', 'prompt', 'response']
 
 
 def to_lines(stdout):
@@ -158,8 +161,20 @@ def to_lines(stdout):
         yield item
 
 
+def parse_commands(module):
+    for cmd in module.params['commands']:
+        if isinstance(cmd, string_types):
+            cmd = dict(command=cmd, output=None)
+        elif 'command' not in cmd:
+            module.fail_json(msg='command keyword argument is required')
+        elif not set(cmd.keys()).issubset(VALID_KEYS):
+            module.fail_json(msg='unknown keyword specified')
+        yield cmd
+
+
 def main():
     spec = dict(
+        # { command: <str>, prompt: <str>, response: <str> }
         commands=dict(type='list', required=True),
         wait_for=dict(type='list'),
         retries=dict(default=10, type='int'),
@@ -170,7 +185,7 @@ def main():
                            connect_on_load=False,
                            supports_check_mode=True)
 
-    commands = module.params['commands']
+    commands = list(parse_commands(module))
     conditionals = module.params['wait_for'] or list()
 
     warnings = list()
@@ -178,15 +193,15 @@ def main():
     runner = CommandRunner(module)
 
     for cmd in commands:
-        if module.check_mode and not cmd.startswith('show'):
+        if module.check_mode and not cmd['command'].startswith('show'):
             warnings.append('only show commands are supported when using '
                             'check mode, not executing `%s`' % cmd)
         else:
-            if cmd.startswith('conf'):
+            if cmd['command'].startswith('conf'):
                 module.fail_json(msg='dellos9_command does not support running '
                                      'config mode commands.  Please use '
                                      'dellos9_config instead')
-            runner.add_command(cmd)
+            runner.add_command(**cmd)
 
     for item in conditionals:
         runner.add_conditional(item)
@@ -208,7 +223,7 @@ def main():
     result['stdout'] = list()
     for cmd in commands:
         try:
-            output = runner.get_command(cmd)
+            output = runner.get_command(cmd['command'])
         except ValueError:
             output = 'command not executed due to check_mode, see warnings'
         result['stdout'].append(output)
